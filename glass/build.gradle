@@ -1,0 +1,51 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'dev.glassrevival.glass'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'dev.glassrevival.glass'
+        // Glass Explorer Edition runs Android 4.4.2 (API 19). Targeting 19 keeps
+        // the platform's KitKat behavior and avoids anything newer.
+        minSdk 19
+        //noinspection ExpiredTargetSdkVersion
+        targetSdk 19
+        versionCode 1
+        versionName '0.1.0'
+    }
+
+    signingConfigs {
+        // Shared dev key so builds from any machine or CI can update each other.
+        dev {
+            storeFile rootProject.file('keystore/glasslink-dev.jks')
+            storePassword 'glasslink'
+            keyAlias 'glasslink'
+            keyPassword 'glasslink'
+        }
+    }
+
+    buildTypes {
+        debug { signingConfig signingConfigs.dev }
+        release {
+            signingConfig signingConfigs.dev
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    lint {
+        abortOnError false
+        disable 'ExpiredTargetSdkVersion', 'OldTargetApi'
+    }
+}
+
+dependencies {
+    implementation project(':protocol')
+}

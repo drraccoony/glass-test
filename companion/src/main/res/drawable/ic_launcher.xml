@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simple Glass-style frame with a display prism. AGP rasterizes this for API 19. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:fillColor="#34A7FF"
+        android:pathData="M24,2A22,22 0,1 1,24 46A22,22 0,1 1,24 2Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M8,20 L38,20 M38,20 L38,27" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M30,18 L40,18 Q42,18 42,20 L42,26 Q42,28 40,28 L30,28 Q28,28 28,26 L28,20 Q28,18 30,18 Z" />
+    <path
+        android:fillColor="#34A7FF"
+        android:pathData="M31,21 L39,21 L39,25 L31,25 Z" />
+</vector>

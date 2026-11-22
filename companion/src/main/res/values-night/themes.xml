@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="accent">#5AB0FF</color>
+    <color name="ok">#7CCB6A</color>
+    <color name="bad">#FF7A7A</color>
+    <color name="muted_text">#A0A0A0</color>
+
+    <style name="AppTheme" parent="@android:style/Theme.Material">
+        <item name="android:colorPrimary">#1E3A55</item>
+        <item name="android:colorPrimaryDark">#122437</item>
+        <item name="android:colorAccent">@color/accent</item>
+    </style>
+</resources>
