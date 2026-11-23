@@ -41,6 +41,24 @@ public class MainActivity extends Activity implements LinkManager.Listener {
 
     private TextView statusTitle;
     private TextView statusDetail;
+    private View statusDot;
+    private View permissionsCard;
+    private View notifAccessRow;
+    private View btPermRow;
+    private TextView glassSummary;
+    private View glassEdit;
+    private Button glassEditButton;
+    private boolean glassEditing;
+
+    private static final String[] TAB_TITLES = {"Glass", "Notifications", "Weather", "Airports"};
+    private final View[] pages = new View[4];
+    private final View[] tabs = new View[4];
+    private final android.widget.ImageView[] tabIcons = new android.widget.ImageView[4];
+    private final TextView[] tabLabels = new TextView[4];
+    private TextView pageTitle;
+    private View headerDot;
+    private TextView headerState;
+    private int currentTab;
     private TextView notifAccessState;
     private Button notifAccessButton;
     private TextView btPermState;
@@ -70,6 +88,19 @@ public class MainActivity extends Activity implements LinkManager.Listener {
 
         statusTitle = findViewById(R.id.status_title);
         statusDetail = findViewById(R.id.status_detail);
+        statusDot = findViewById(R.id.status_dot);
+        setUpTabs(savedInstanceState);
+        permissionsCard = findViewById(R.id.permissions_card);
+        notifAccessRow = findViewById(R.id.notif_access_row);
+        btPermRow = findViewById(R.id.bt_perm_row);
+        glassSummary = findViewById(R.id.glass_summary);
+        glassEdit = findViewById(R.id.glass_edit);
+        glassEditButton = findViewById(R.id.glass_edit_button);
+        glassEditing = !prefs.isConfigured();
+        glassEditButton.setOnClickListener(v -> {
+            glassEditing = !glassEditing;
+            refresh();
+        });
         notifAccessState = findViewById(R.id.notif_access_state);
         notifAccessButton = findViewById(R.id.notif_access_button);
         btPermState = findViewById(R.id.bt_perm_state);
@@ -160,15 +191,32 @@ public class MainActivity extends Activity implements LinkManager.Listener {
         statusTitle.setText(StatusText.title(link));
         String detail = StatusText.detail(link);
         statusDetail.setText(detail);
-        statusTitle.setTextColor(getColor(link.isConnected() ? R.color.ok : R.color.bad));
+        statusDetail.setVisibility(detail.isEmpty() ? View.GONE : View.VISIBLE);
+        LinkManager.State st = link.state();
+        int dot = st == LinkManager.State.CONNECTED ? R.color.ok
+                : st == LinkManager.State.CONNECTING || st == LinkManager.State.OFF ? R.color.idle
+                : R.color.bad;
+        statusDot.getBackground().mutate().setTint(getColor(dot));
+        headerDot.getBackground().mutate().setTint(getColor(dot));
+        headerState.setText(st == LinkManager.State.CONNECTED ? "Connected"
+                : st == LinkManager.State.CONNECTING ? "Connecting" : "Offline");
 
+        // The setup card only appears while something is missing.
         boolean access = hasNotificationAccess();
-        notifAccessState.setText(access ? "Notification access: allowed" : "Notification access: needed");
-        notifAccessButton.setText(access ? "Change" : "Open settings");
-
         boolean bt = hasBluetoothPermission();
-        btPermState.setText(bt ? "Bluetooth: allowed" : "Bluetooth: needed");
-        btPermButton.setEnabled(!bt || !hasPostNotifications());
+        notifAccessState.setText("Allow notification access");
+        notifAccessRow.setVisibility(access ? View.GONE : View.VISIBLE);
+        btPermState.setText("Allow Bluetooth");
+        btPermRow.setVisibility(bt ? View.GONE : View.VISIBLE);
+        permissionsCard.setVisibility(access && bt ? View.GONE : View.VISIBLE);
+
+        boolean configured = prefs.isConfigured();
+        glassSummary.setText(configured
+                ? prefs.glassAddress() + "\nPair code saved"
+                : "Not set up yet");
+        glassEdit.setVisibility(glassEditing || !configured ? View.VISIBLE : View.GONE);
+        glassEditButton.setVisibility(configured ? View.VISIBLE : View.GONE);
+        glassEditButton.setText(glassEditing ? "Done" : "Edit");
 
         String place = prefs.placeName();
         weatherPlace.setText(place == null ? "Location: this phone" : "Location: " + place);
@@ -183,9 +231,7 @@ public class MainActivity extends Activity implements LinkManager.Listener {
             weatherLocationButton.setText("All the time");
             weatherLocationButton.setEnabled(true);
         } else {
-            weatherLocationState.setText("Location access: allowed");
-            weatherLocationButton.setText("Allowed");
-            weatherLocationButton.setEnabled(false);
+            weatherLocationRow.setVisibility(View.GONE); // nothing to do
         }
         String ms = prefs.metarStatus();
         metarStatus.setText(ms.isEmpty() ? "METARs come from aviationweather.gov and update every 10 minutes." : ms);
@@ -215,6 +261,8 @@ public class MainActivity extends Activity implements LinkManager.Listener {
             link.reconnectNow();
         }
         Toast.makeText(this, "Saved", Toast.LENGTH_SHORT).show();
+        glassEditing = false;
+        refresh();
     }
 
     private void setForwarding(boolean on) {
@@ -347,6 +395,54 @@ public class MainActivity extends Activity implements LinkManager.Listener {
                         prefs.setQuickRepliesText(Prefs.DEFAULT_QUICK_REPLIES))
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
+    }
+
+    // ---- Tabs -----------------------------------------------------------------------------
+
+    private void setUpTabs(Bundle savedInstanceState) {
+        pageTitle = findViewById(R.id.page_title);
+        headerDot = findViewById(R.id.header_dot);
+        headerState = findViewById(R.id.header_state);
+        int[] pageIds = {R.id.page_glass, R.id.page_notifications, R.id.page_weather, R.id.page_airports};
+        int[][] tabIds = {
+            {R.id.tab_glass, R.id.tab_glass_icon, R.id.tab_glass_label},
+            {R.id.tab_notifications, R.id.tab_notifications_icon, R.id.tab_notifications_label},
+            {R.id.tab_weather, R.id.tab_weather_icon, R.id.tab_weather_label},
+            {R.id.tab_airports, R.id.tab_airports_icon, R.id.tab_airports_label},
+        };
+        for (int i = 0; i < 4; i++) {
+            final int index = i;
+            pages[i] = findViewById(pageIds[i]);
+            tabs[i] = findViewById(tabIds[i][0]);
+            tabIcons[i] = findViewById(tabIds[i][1]);
+            tabLabels[i] = findViewById(tabIds[i][2]);
+            tabs[i].setOnClickListener(v -> selectTab(index));
+        }
+        int start = savedInstanceState != null ? savedInstanceState.getInt("tab", 0)
+                : getPreferences(MODE_PRIVATE).getInt("tab", 0);
+        // Until pairing is done, the Glass tab is the one that matters.
+        if (!prefs.isConfigured()) start = 0;
+        selectTab(start);
+    }
+
+    private void selectTab(int index) {
+        currentTab = Math.max(0, Math.min(3, index));
+        for (int i = 0; i < 4; i++) {
+            boolean on = i == currentTab;
+            pages[i].setVisibility(on ? View.VISIBLE : View.GONE);
+            int color = getColor(on ? R.color.accent : R.color.muted_text);
+            tabIcons[i].setColorFilter(color);
+            tabLabels[i].setTextColor(color);
+            tabs[i].setSelected(on);
+        }
+        pageTitle.setText(currentTab == 0 ? getString(R.string.app_name) : TAB_TITLES[currentTab]);
+        getPreferences(MODE_PRIVATE).edit().putInt("tab", currentTab).apply();
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putInt("tab", currentTab);
     }
 
     // ---- METAR ----------------------------------------------------------------------------

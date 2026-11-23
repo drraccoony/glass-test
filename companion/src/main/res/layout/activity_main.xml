@@ -1,256 +1,486 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Four pages (Glass, Notifications, Weather, Airports) switched by the bottom tab bar. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fitsSystemWindows="true">
+    android:background="@color/page_bg"
+    android:fitsSystemWindows="true"
+    android:orientation="vertical">
 
+    <!-- Top bar: current tab and a connection dot visible from every tab -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="20dp">
-
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingLeft="20dp"
+        android:paddingTop="16dp"
+        android:paddingRight="20dp"
+        android:paddingBottom="8dp">
         <TextView
-            android:id="@+id/status_title"
-            android:layout_width="match_parent"
+            android:id="@+id/page_title"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:textSize="24sp"
+            android:layout_weight="1"
+            android:textSize="26sp"
             android:textStyle="bold" />
-
+        <View
+            android:id="@+id/header_dot"
+            android:layout_width="10dp"
+            android:layout_height="10dp"
+            android:layout_marginEnd="8dp"
+            android:background="@drawable/status_dot" />
         <TextView
-            android:id="@+id/status_detail"
-            style="@style/Hint"
-            android:layout_marginTop="4dp"
-            android:textSize="15sp" />
-
-        <!-- Step 1 -->
-        <TextView style="@style/Section" android:text="1. Permissions" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-            <TextView
-                android:id="@+id/notif_access_state"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:textSize="15sp" />
-            <Button
-                android:id="@+id/notif_access_button"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Open settings" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-            <TextView
-                android:id="@+id/bt_perm_state"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:textSize="15sp" />
-            <Button
-                android:id="@+id/bt_perm_button"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Allow" />
-        </LinearLayout>
-
-        <TextView
-            style="@style/Hint"
-            android:layout_marginTop="4dp"
-            android:text="If notification access is greyed out, open App info for GlassLink, tap the three-dot menu and choose Allow restricted settings. Installing with adb avoids this." />
-
-        <!-- Step 2 -->
-        <TextView style="@style/Section" android:text="2. Your Glass" />
-
-        <TextView
-            style="@style/Hint"
-            android:text="Open GlassLink on Glass. Its first card shows the Glass address and a six-digit pair code." />
-
-        <EditText
-            android:id="@+id/address"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:hint="Glass address, e.g. F8:8F:CA:12:34:56"
-            android:importantForAutofill="no"
-            android:inputType="textCapCharacters|textNoSuggestions"
-            android:maxLength="17"
-            android:singleLine="true" />
-
-        <Button
-            android:id="@+id/choose_paired"
-            style="?android:attr/borderlessButtonStyle"
+            android:id="@+id/header_state"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Choose from paired devices" />
-
-        <EditText
-            android:id="@+id/code"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Pair code"
-            android:importantForAutofill="no"
-            android:inputType="numberPassword"
-            android:maxLength="6"
-            android:singleLine="true" />
-
-        <Button
-            android:id="@+id/save"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="Save and connect" />
-
-        <!-- Step 3 -->
-        <TextView style="@style/Section" android:text="3. Forwarding" />
-
-        <Switch
-            android:id="@+id/enabled"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:paddingTop="8dp"
-            android:paddingBottom="8dp"
-            android:text="Send notifications to Glass"
-            android:textSize="16sp" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-            <Button
-                android:id="@+id/test"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Send test" />
-            <Button
-                android:id="@+id/muted"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:layout_weight="1"
-                android:text="Muted apps" />
-        </LinearLayout>
-
-        <Button
-            android:id="@+id/quick_replies"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Quick replies" />
-
-        <!-- Step 4 -->
-        <TextView style="@style/Section" android:text="4. Weather" />
-
-        <Switch
-            android:id="@+id/weather_enabled"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:paddingTop="8dp"
-            android:paddingBottom="8dp"
-            android:text="Show weather on Glass"
-            android:textSize="16sp" />
-
-        <Switch
-            android:id="@+id/weather_fahrenheit"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:paddingTop="8dp"
-            android:paddingBottom="8dp"
-            android:text="Use Fahrenheit (&#176;F)"
-            android:textSize="16sp" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-            <TextView
-                android:id="@+id/weather_place"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:textSize="15sp" />
-            <Button
-                android:id="@+id/weather_place_button"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Change" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/weather_location_row"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-            <TextView
-                android:id="@+id/weather_location_state"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:textSize="15sp" />
-            <Button
-                android:id="@+id/weather_location_button"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Allow" />
-        </LinearLayout>
-
-        <TextView
-            android:id="@+id/weather_status"
-            style="@style/Hint"
-            android:layout_marginTop="4dp" />
-
-        <Button
-            android:id="@+id/weather_refresh"
-            style="?android:attr/borderlessButtonStyle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Update now" />
-
-        <!-- Step 5 -->
-        <TextView style="@style/Section" android:text="5. Airport weather (METAR)" />
-
-        <Switch
-            android:id="@+id/metar_enabled"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:paddingTop="8dp"
-            android:paddingBottom="8dp"
-            android:text="Show METARs on Glass"
-            android:textSize="16sp" />
-
-        <EditText
-            android:id="@+id/metar_airports"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Airports, comma separated, e.g. KLVN, KMSP"
-            android:importantForAutofill="no"
-            android:inputType="textCapCharacters|textNoSuggestions"
-            android:singleLine="true" />
-
-        <Button
-            android:id="@+id/metar_save"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Save airports" />
-
-        <TextView
-            android:id="@+id/metar_status"
-            style="@style/Hint"
-            android:layout_marginTop="4dp" />
-
-        <TextView
-            style="@style/Hint"
-            android:layout_marginTop="12dp"
-            android:text="Ongoing notifications (music, downloads, navigation) and anything an app marks as phone-only are not sent. Dismissing a card on Glass clears it on the phone too. Messages from apps with a reply button can be answered from Glass." />
+            android:textColor="@color/muted_text"
+            android:textSize="14sp" />
     </LinearLayout>
-</ScrollView>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+        <ScrollView
+            android:id="@+id/page_glass"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingLeft="16dp"
+                android:paddingTop="4dp"
+                android:paddingRight="16dp"
+                android:paddingBottom="24dp">
+            <!-- Connection status -->
+            <LinearLayout
+                style="@style/Card"
+                android:gravity="center_vertical"
+                android:minHeight="72dp"
+                android:orientation="horizontal"
+                android:paddingTop="14dp"
+                android:paddingBottom="14dp">
+                <View
+                    android:id="@+id/status_dot"
+                    android:layout_width="12dp"
+                    android:layout_height="12dp"
+                    android:layout_marginEnd="14dp"
+                    android:background="@drawable/status_dot" />
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+                    <TextView
+                        android:id="@+id/status_title"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:id="@+id/status_detail"
+                        style="@style/Hint"
+                        android:layout_marginTop="2dp"
+                        android:textSize="14sp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Only shown while a permission is missing -->
+            <LinearLayout
+                android:id="@+id/permissions_card"
+                style="@style/Card"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/card_warn_bg"
+                android:paddingTop="12dp">
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="4dp"
+                    android:text="Finish setup"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+                <LinearLayout
+                    android:id="@+id/notif_access_row"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+                    <TextView
+                        android:id="@+id/notif_access_state"
+                        style="@style/RowLabel"
+                        android:textSize="15sp" />
+                    <Button
+                        android:id="@+id/notif_access_button"
+                        style="@style/TextButton"
+                        android:text="Allow" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/bt_perm_row"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+                    <TextView
+                        android:id="@+id/bt_perm_state"
+                        style="@style/RowLabel"
+                        android:textSize="15sp" />
+                    <Button
+                        android:id="@+id/bt_perm_button"
+                        style="@style/TextButton"
+                        android:text="Allow" />
+                </LinearLayout>
+                <TextView
+                    style="@style/Hint"
+                    android:layout_marginBottom="4dp"
+                    android:text="If notification access is greyed out: App info, three-dot menu, Allow restricted settings." />
+            </LinearLayout>
+
+            <!-- Glass -->
+            <TextView style="@style/Section" android:text="Pairing" />
+            <LinearLayout style="@style/Card">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:minHeight="52dp"
+                    android:orientation="horizontal">
+                    <TextView
+                        android:id="@+id/glass_summary"
+                        style="@style/RowLabel"
+                        android:textSize="15sp" />
+                    <Button
+                        android:id="@+id/glass_edit_button"
+                        style="@style/TextButton"
+                        android:text="Edit" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/glass_edit"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingEnd="8dp"
+                    android:paddingBottom="4dp">
+                    <TextView
+                        style="@style/Hint"
+                        android:text="Open GlassLink on Glass. Its first card shows the address and the six-digit pair code." />
+                    <EditText
+                        android:id="@+id/address"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:hint="Glass address, e.g. F8:8F:CA:12:34:56"
+                        android:importantForAutofill="no"
+                        android:inputType="textCapCharacters|textNoSuggestions"
+                        android:maxLength="17"
+                        android:singleLine="true" />
+                    <EditText
+                        android:id="@+id/code"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="Pair code"
+                        android:importantForAutofill="no"
+                        android:inputType="numberPassword"
+                        android:maxLength="6"
+                        android:singleLine="true" />
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="end"
+                        android:orientation="horizontal">
+                        <Button
+                            android:id="@+id/choose_paired"
+                            style="@style/TextButton"
+                            android:text="Paired devices" />
+                        <Button
+                            android:id="@+id/save"
+                            style="@style/TextButton"
+                            android:text="Save and connect" />
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+
+            </LinearLayout>
+        </ScrollView>
+        <ScrollView
+            android:id="@+id/page_notifications"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingLeft="16dp"
+                android:paddingTop="4dp"
+                android:paddingRight="16dp"
+                android:paddingBottom="24dp">
+            <!-- Notifications -->
+            <LinearLayout style="@style/Card" android:layout_marginTop="8dp">
+                <Switch
+                    android:id="@+id/enabled"
+                    style="@style/SwitchRow"
+                    android:text="Send notifications to Glass" />
+                <View style="@style/Divider" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="-8dp"
+                    android:orientation="horizontal">
+                    <Button
+                        android:id="@+id/test"
+                        style="@style/TextButton"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:text="Send test" />
+                    <Button
+                        android:id="@+id/quick_replies"
+                        style="@style/TextButton"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:text="Quick replies" />
+                    <Button
+                        android:id="@+id/muted"
+                        style="@style/TextButton"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:text="Muted apps" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <TextView
+                style="@style/Hint"
+                android:layout_marginStart="4dp"
+                android:layout_marginTop="20dp"
+                android:text="Ongoing notifications (music, downloads, navigation) and anything an app marks as phone-only are not sent. Dismissing a card on Glass clears it on the phone too. Messages from apps with a reply button can be answered from Glass." />
+            </LinearLayout>
+        </ScrollView>
+        <ScrollView
+            android:id="@+id/page_weather"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingLeft="16dp"
+                android:paddingTop="4dp"
+                android:paddingRight="16dp"
+                android:paddingBottom="24dp">
+            <!-- Weather -->
+            <LinearLayout style="@style/Card" android:layout_marginTop="8dp">
+                <Switch
+                    android:id="@+id/weather_enabled"
+                    style="@style/SwitchRow"
+                    android:text="Show weather on Glass" />
+                <View style="@style/Divider" />
+                <Switch
+                    android:id="@+id/weather_fahrenheit"
+                    style="@style/SwitchRow"
+                    android:text="Use Fahrenheit (&#176;F)" />
+                <View style="@style/Divider" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:minHeight="52dp"
+                    android:orientation="horizontal">
+                    <TextView
+                        android:id="@+id/weather_place"
+                        style="@style/RowLabel" />
+                    <Button
+                        android:id="@+id/weather_place_button"
+                        style="@style/TextButton"
+                        android:text="Change" />
+                </LinearLayout>
+                <LinearLayout
+                    android:id="@+id/weather_location_row"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+                    <TextView
+                        android:id="@+id/weather_location_state"
+                        style="@style/RowLabel"
+                        android:textColor="@color/muted_text"
+                        android:textSize="14sp" />
+                    <Button
+                        android:id="@+id/weather_location_button"
+                        style="@style/TextButton"
+                        android:text="Allow" />
+                </LinearLayout>
+                <View style="@style/Divider" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+                    <TextView
+                        android:id="@+id/weather_status"
+                        style="@style/Hint"
+                        android:layout_width="0dp"
+                        android:layout_weight="1" />
+                    <Button
+                        android:id="@+id/weather_refresh"
+                        style="@style/TextButton"
+                        android:text="Update now" />
+                </LinearLayout>
+            </LinearLayout>
+
+            </LinearLayout>
+        </ScrollView>
+        <ScrollView
+            android:id="@+id/page_airports"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingLeft="16dp"
+                android:paddingTop="4dp"
+                android:paddingRight="16dp"
+                android:paddingBottom="24dp">
+            <!-- METAR -->
+            <LinearLayout style="@style/Card" android:layout_marginTop="8dp">
+                <Switch
+                    android:id="@+id/metar_enabled"
+                    style="@style/SwitchRow"
+                    android:text="Show METARs on Glass" />
+                <View style="@style/Divider" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+                    <EditText
+                        android:id="@+id/metar_airports"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:hint="Airports, e.g. KLVN, KMSP"
+                        android:importantForAutofill="no"
+                        android:inputType="textCapCharacters|textNoSuggestions"
+                        android:singleLine="true" />
+                    <Button
+                        android:id="@+id/metar_save"
+                        style="@style/TextButton"
+                        android:text="Save" />
+                </LinearLayout>
+                <TextView
+                    android:id="@+id/metar_status"
+                    style="@style/Hint"
+                    android:layout_marginBottom="6dp" />
+            </LinearLayout>
+
+            <TextView
+                style="@style/Hint"
+                android:layout_marginStart="4dp"
+                android:layout_marginTop="16dp"
+                android:text="Each airport gets its own card on Glass, after the weather card, showing the raw METAR and its flight category. Reports come from aviationweather.gov." />
+            </LinearLayout>
+        </ScrollView>
+    </FrameLayout>
+
+    <View style="@style/Divider" />
+
+    <!-- Bottom tab bar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="64dp"
+        android:background="@color/card_bg"
+        android:orientation="horizontal">
+        <LinearLayout
+            android:id="@+id/tab_glass"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:gravity="center"
+            android:orientation="vertical">
+            <ImageView
+                android:id="@+id/tab_glass_icon"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:importantForAccessibility="no"
+                android:src="@drawable/tab_glass" />
+            <TextView
+                android:id="@+id/tab_glass_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="Glass"
+                android:textSize="12sp" />
+        </LinearLayout>
+        <LinearLayout
+            android:id="@+id/tab_notifications"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:gravity="center"
+            android:orientation="vertical">
+            <ImageView
+                android:id="@+id/tab_notifications_icon"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:importantForAccessibility="no"
+                android:src="@drawable/tab_notifications" />
+            <TextView
+                android:id="@+id/tab_notifications_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="Notifications"
+                android:textSize="12sp" />
+        </LinearLayout>
+        <LinearLayout
+            android:id="@+id/tab_weather"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:gravity="center"
+            android:orientation="vertical">
+            <ImageView
+                android:id="@+id/tab_weather_icon"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:importantForAccessibility="no"
+                android:src="@drawable/tab_weather" />
+            <TextView
+                android:id="@+id/tab_weather_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="Weather"
+                android:textSize="12sp" />
+        </LinearLayout>
+        <LinearLayout
+            android:id="@+id/tab_airports"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:gravity="center"
+            android:orientation="vertical">
+            <ImageView
+                android:id="@+id/tab_airports_icon"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:importantForAccessibility="no"
+                android:src="@drawable/tab_airports" />
+            <TextView
+                android:id="@+id/tab_airports_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="Airports"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>
