@@ -30,6 +30,7 @@ public class GlassNotificationListener extends NotificationListenerService imple
 
     @Override
     public void onListenerConnected() {
+        Log.i(LinkManager.TAG, "Notification listener connected");
         listening = true;
         link.setPeer(this);
         GlassLinkService.startIfEnabled(this);
@@ -67,7 +68,10 @@ public class GlassNotificationListener extends NotificationListenerService imple
     /** Glass just connected (and cleared its list): send everything currently active. */
     @Override
     public void onGlassConnected() {
-        if (!listening) return;
+        if (!listening) {
+            Log.i(LinkManager.TAG, "Glass connected before the listener; will sync when it binds");
+            return;
+        }
         StatusBarNotification[] active;
         RankingMap ranking;
         try {
@@ -86,14 +90,20 @@ public class GlassNotificationListener extends NotificationListenerService imple
                 return Long.compare(a.getPostTime(), b.getPostTime());
             }
         });
+        int sent = 0;
         for (StatusBarNotification sbn : active) {
             JSONObject msg = mapper.map(sbn, ranking, true);
-            if (msg != null) link.send(msg);
+            if (msg != null) {
+                link.send(msg);
+                sent++;
+            }
         }
+        Log.i(LinkManager.TAG, "Synced " + sent + " of " + active.length + " notifications to Glass");
     }
 
     @Override
     public void onGlassDismissed(String key) {
+        Log.i(LinkManager.TAG, "Glass dismissed " + key);
         mapper.forget(key);
         try {
             cancelNotification(key);

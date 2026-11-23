@@ -5,98 +5,106 @@ import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
-import android.graphics.Bitmap;
+import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.speech.RecognizerIntent;
 import android.text.format.DateFormat;
 import android.view.KeyEvent;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.widget.AdapterView;
 import android.widget.ImageView;
 import android.widget.TextView;
-import android.widget.Toast;
+import com.google.android.glass.media.Sounds;
+import com.google.android.glass.widget.CardBuilder;
+import com.google.android.glass.widget.CardScrollAdapter;
+import com.google.android.glass.widget.CardScrollView;
+import com.google.android.glass.widget.Slider;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.List;
 
 /**
- * Card viewer. Card 0 shows the link status and pair code, card 1 the weather (once the
- * phone has sent a forecast), the rest are notifications, newest first. Swipe to move, tap for options, swipe down to leave.
- *
- * <p>Tapping a notification opens a menu: reply by voice, quick replies and dismiss.
- * A chosen reply waits two seconds before sending, so a swipe down can cancel it.
+ * GlassLink's cards, shown in the same scroller as the Glass timeline. Card 0 is the link
+ * status, then the weather (once the phone has sent a forecast), then notifications,
+ * newest first. Tap a notification for the Glass menu: reply by voice, quick replies or
+ * dismiss. Replies use the Glass "Sending" card with a grace period; swipe down cancels.
  *
  * <p>When launched by {@link LinkService} for a new alert, it opens on that card and
  * closes itself after a few seconds unless you touch the pad.
  */
-public class MainActivity extends Activity implements NotificationStore.Listener, Gestures.Callback {
+public class MainActivity extends Activity implements NotificationStore.Listener {
 
     static final String EXTRA_ALERT_KEY = "alert_key";
     private static final long ALERT_TIMEOUT_MS = 10000;
-    private static final long SEND_DELAY_MS = 2000;
     private static final long REPLY_TIMEOUT_MS = 15000;
-    private static final long RESULT_SHOW_MS = 1800;
-    private static final int REQ_VOICE = 1;
+    private static final long RESULT_SHOW_MS = 1500;
     private static final long WEATHER_STALE_MS = 30 * 60 * 1000L;
+    private static final int REQ_VOICE = 1;
 
-    private enum Mode { CARDS, MENU, SENDING, WAITING, RESULT }
+    private static final int MENU_VOICE = 1;
+    private static final int MENU_DISMISS = 2;
+    private static final int MENU_CHOICE_BASE = 100;
 
-    private static final class MenuItem {
-        static final int VOICE = 0;
-        static final int QUICK = 1;
-        static final int DISMISS = 2;
+    /** One card in the scroller. Equal cards keep their place when the list changes. */
+    private static final class Card {
+        static final int STATUS = 0;
+        static final int WEATHER = 1;
+        static final int NOTE = 2;
 
         final int kind;
-        final String label;
-        final String text;
+        final NotificationStore.Note note;
 
-        MenuItem(int kind, String label, String text) {
+        Card(int kind, NotificationStore.Note note) {
             this.kind = kind;
-            this.label = label;
-            this.text = text;
+            this.note = note;
+        }
+
+        String id() {
+            return kind == NOTE ? "note:" + note.key : "kind:" + kind;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            return o instanceof Card && ((Card) o).id().equals(id());
+        }
+
+        @Override
+        public int hashCode() {
+            return id().hashCode();
         }
     }
 
     private final NotificationStore store = NotificationStore.get();
     private final Handler handler = new Handler();
-    private final Gestures gestures = new Gestures(this);
     private final Runnable alertTimeout = this::finish;
-    private final Runnable sendNow = this::sendPendingReply;
     private final Runnable replyTimeout = () -> showResult(false, "No answer from your phone");
-    private final Runnable backToCards = () -> {
-        mode = Mode.CARDS;
-        render();
-    };
+    private final Runnable backToCards = this::showCards;
 
-    private ImageView icon;
-    private TextView app;
-    private TextView time;
-    private TextView title;
-    private TextView text;
-    private View linkDot;
-    private TextView footer;
-    private TextView position;
-    private ImageView weatherIcon;
-    private View root;
-
+    private AudioManager audio;
+    private CardScrollView scroller;
+    private final CardsAdapter adapter = new CardsAdapter();
+    private List<Card> cards = new ArrayList<>();
     private List<NotificationStore.Note> notes = Collections.emptyList();
     private Weather weather;
-    private int index; // 0 is the status card, then weather if present, then notes
-    private boolean pendingWeatherCard;
-    private boolean weatherRefreshing;
+
     private String pendingAlertKey;
     private boolean alertMode;
+    private boolean pendingWeatherCard;
+    private boolean weatherRefreshing;
 
-    private Mode mode = Mode.CARDS;
-    private String actionKey; // the notification the menu or reply is about
-    private List<MenuItem> menu = Collections.emptyList();
-    private int menuPos;
+    // Reply flow: an overlay card replaces the scroller while a reply is sent.
+    private String actionKey;
+    private View overlay;
+    private Slider.GracePeriod grace;
+    private Slider.Indeterminate waiting;
     private String replyText;
-    private boolean resultOk;
-    private String resultMessage;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -104,18 +112,16 @@ public class MainActivity extends Activity implements NotificationStore.Listener
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
                 | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
                 | WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED);
-        setContentView(R.layout.activity_main);
-        root = findViewById(android.R.id.content);
-        icon = (ImageView) findViewById(R.id.icon);
-        app = (TextView) findViewById(R.id.app);
-        time = (TextView) findViewById(R.id.time);
-        title = (TextView) findViewById(R.id.title);
-        text = (TextView) findViewById(R.id.text);
-        linkDot = findViewById(R.id.link_dot);
-        footer = (TextView) findViewById(R.id.footer);
-        position = (TextView) findViewById(R.id.position);
-        weatherIcon = (ImageView) findViewById(R.id.weather_icon);
-
+        audio = (AudioManager) getSystemService(AUDIO_SERVICE);
+        scroller = new CardScrollView(this);
+        scroller.setAdapter(adapter);
+        scroller.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                onCardTapped(position);
+            }
+        });
+        setContentView(scroller);
         LinkService.start(this);
         handleIntent(getIntent());
     }
@@ -137,8 +143,8 @@ public class MainActivity extends Activity implements NotificationStore.Listener
             Weather w = store.weather();
             if (w == null || System.currentTimeMillis() - w.updated > WEATHER_STALE_MS) refreshWeather();
         }
-        // Don't yank the user out of a menu or a reply in progress.
-        if (mode != Mode.CARDS) key = null;
+        // Don't pull the user away from a reply in progress.
+        if (overlay != null) key = null;
         alertMode = key != null;
         pendingAlertKey = key;
         if (alertMode) handler.postDelayed(alertTimeout, ALERT_TIMEOUT_MS);
@@ -149,12 +155,14 @@ public class MainActivity extends Activity implements NotificationStore.Listener
     protected void onResume() {
         super.onResume();
         store.addListener(this);
+        if (overlay == null) scroller.activate();
         refresh();
     }
 
     @Override
     protected void onPause() {
         store.removeListener(this);
+        scroller.deactivate();
         super.onPause();
     }
 
@@ -169,123 +177,167 @@ public class MainActivity extends Activity implements NotificationStore.Listener
         refresh();
     }
 
-    @Override
-    public void onReplyResult(String key, boolean ok, String error) {
-        if (mode != Mode.WAITING || !key.equals(actionKey)) return;
-        handler.removeCallbacks(replyTimeout);
-        showResult(ok, ok ? "" : error);
-    }
-
-    private int fixedCards() {
-        return weather != null ? 2 : 1;
-    }
-
-    private int weatherIndex() {
-        return weather != null ? 1 : -1;
-    }
-
-    private int cardCount() {
-        return fixedCards() + notes.size();
-    }
-
-    private NotificationStore.Note noteAt(int cardIndex) {
-        int i = cardIndex - fixedCards();
-        return i >= 0 && i < notes.size() ? notes.get(i) : null;
-    }
+    // ---- Card list ------------------------------------------------------------------------
 
     private void refresh() {
-        NotificationStore.Note current = noteAt(index);
-        String currentKey = current == null ? null : current.key;
-        boolean onWeather = index == weatherIndex();
+        int selected = scroller.getSelectedItemPosition();
+        Card current = selected >= 0 && selected < cards.size() ? cards.get(selected) : null;
         Weather previous = weather;
         notes = store.notes();
         weather = store.weather();
         if (weather != previous) weatherRefreshing = false;
-        String target = pendingAlertKey != null ? pendingAlertKey : currentKey;
-        int found = findIndex(target);
-        if (found >= 0) {
-            index = found + fixedCards();
-            if (target.equals(pendingAlertKey)) pendingAlertKey = null;
-        } else if (onWeather && weather != null) {
-            index = weatherIndex();
+
+        List<Card> next = new ArrayList<>();
+        next.add(new Card(Card.STATUS, null));
+        if (weather != null) next.add(new Card(Card.WEATHER, null));
+        for (NotificationStore.Note n : notes) next.add(new Card(Card.NOTE, n));
+        cards = next;
+
+        int target = current == null ? 0 : cards.indexOf(current);
+        if (target < 0) target = Math.min(selected, cards.size() - 1); // its card went away
+        if (pendingAlertKey != null) {
+            int i = indexOfNote(pendingAlertKey);
+            if (i >= 0) {
+                target = i;
+                pendingAlertKey = null;
+            }
         }
-        if (pendingWeatherCard && weather != null && pendingAlertKey == null) {
-            index = weatherIndex();
+        if (pendingWeatherCard && weather != null) {
+            target = 1;
             pendingWeatherCard = false;
         }
-        index = Math.max(0, Math.min(index, cardCount() - 1));
-        // The notification went away (cleared on the phone) while its menu was open.
-        if (mode == Mode.MENU && findIndex(actionKey) < 0) mode = Mode.CARDS;
-        render();
+        adapter.notifyDataSetChanged();
+        scroller.setSelection(Math.max(0, target));
+        // The note behind an open reply flow was cleared on the phone.
+        if (overlay != null && grace != null && noteFor(actionKey) == null) cancelReply();
     }
 
-    private int findIndex(String key) {
-        if (key == null) return -1;
-        for (int i = 0; i < notes.size(); i++) {
-            if (notes.get(i).key.equals(key)) return i;
+    private int indexOfNote(String key) {
+        for (int i = 0; i < cards.size(); i++) {
+            Card c = cards.get(i);
+            if (c.kind == Card.NOTE && c.note.key.equals(key)) return i;
         }
         return -1;
     }
 
     private NotificationStore.Note noteFor(String key) {
-        int i = findIndex(key);
-        return i < 0 ? null : notes.get(i);
+        int i = indexOfNote(key);
+        return i < 0 ? null : cards.get(i).note;
     }
 
-    // ---- Rendering ------------------------------------------------------------------------
-
-    private void render() {
-        NotificationStore.LinkState link = store.linkState();
-        linkDot.setBackgroundColor(getResources().getColor(
-                link == NotificationStore.LinkState.CONNECTED ? R.color.glass_green : R.color.glass_red));
-        boolean weatherCard = mode == Mode.CARDS && index == weatherIndex();
-        weatherIcon.setVisibility(weatherCard ? View.VISIBLE : View.GONE);
-        int iconRoom = weatherCard ? (int) (72 * getResources().getDisplayMetrics().density) : 0;
-        title.setPadding(0, 0, iconRoom, 0);
-        text.setPadding(0, 0, iconRoom, 0);
-        text.setTextSize(weatherCard ? 18 : 20);
-        if (weatherCard) {
-            renderWeather();
-            return;
+    private final class CardsAdapter extends CardScrollAdapter {
+        @Override
+        public int getCount() {
+            return cards.size();
         }
 
-        switch (mode) {
-            case MENU:
-                renderMenu();
-                return;
-            case SENDING:
-            case WAITING:
-                renderSending();
-                return;
-            case RESULT:
-                renderResult();
-                return;
+        @Override
+        public Object getItem(int position) {
+            return cards.get(position);
+        }
+
+        @Override
+        public long getItemId(int position) {
+            return cards.get(position).id().hashCode();
+        }
+
+        @Override
+        public int getPosition(Object item) {
+            int i = cards.indexOf(item);
+            return i < 0 ? AdapterView.INVALID_POSITION : i;
+        }
+
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            View view = convertView != null ? convertView
+                    : getLayoutInflater().inflate(R.layout.card, parent, false);
+            bind(new CardViews(view), cards.get(position), position);
+            return view;
+        }
+    }
+
+    /** The views of one card (res/layout/card.xml), GlassLink's own card design. */
+    private static final class CardViews {
+        final ImageView icon;
+        final TextView app;
+        final TextView time;
+        final TextView title;
+        final TextView text;
+        final View linkDot;
+        final TextView footer;
+        final TextView position;
+        final ImageView weatherIcon;
+
+        CardViews(View v) {
+            icon = (ImageView) v.findViewById(R.id.icon);
+            app = (TextView) v.findViewById(R.id.app);
+            time = (TextView) v.findViewById(R.id.time);
+            title = (TextView) v.findViewById(R.id.title);
+            text = (TextView) v.findViewById(R.id.text);
+            linkDot = v.findViewById(R.id.link_dot);
+            footer = (TextView) v.findViewById(R.id.footer);
+            position = (TextView) v.findViewById(R.id.position);
+            weatherIcon = (ImageView) v.findViewById(R.id.weather_icon);
+        }
+    }
+
+    private void bind(CardViews v, Card card, int index) {
+        boolean connected = store.linkState() == NotificationStore.LinkState.CONNECTED;
+        v.linkDot.setBackgroundColor(getResources().getColor(
+                connected ? R.color.glass_green : R.color.glass_red));
+        boolean weatherCard = card.kind == Card.WEATHER;
+        v.weatherIcon.setVisibility(weatherCard ? View.VISIBLE : View.GONE);
+        int iconRoom = weatherCard ? (int) (72 * getResources().getDisplayMetrics().density) : 0;
+        v.title.setPadding(0, 0, iconRoom, 0);
+        v.text.setPadding(0, 0, iconRoom, 0);
+        v.text.setTextSize(weatherCard ? 18 : 20);
+        v.title.setVisibility(View.VISIBLE);
+        if (card.kind == Card.STATUS) {
+            bindStatus(v, connected);
+        } else if (weatherCard) {
+            bindWeather(v);
+        } else {
+            bindNote(v, card.note, index);
+        }
+    }
+
+    @SuppressLint({"MissingPermission", "HardwareIds"}) // the address is shown so the user can type it on the phone
+    private void bindStatus(CardViews v, boolean connected) {
+        v.icon.setImageResource(R.drawable.ic_launcher);
+        v.icon.setVisibility(View.VISIBLE);
+        v.app.setText(R.string.app_name);
+        v.time.setText(DateFormat.getTimeFormat(this).format(Calendar.getInstance().getTime()));
+        switch (store.linkState()) {
+            case CONNECTED:
+                String peer = store.peerName();
+                v.title.setText("Connected to " + (peer == null ? "your phone" : peer));
+                break;
+            case BLUETOOTH_OFF:
+                v.title.setText("Bluetooth is off");
+                break;
             default:
+                v.title.setText("Waiting for your phone");
                 break;
         }
-        if (index == 0) {
-            renderStatus(link);
-            return;
-        }
-        NotificationStore.Note note = noteAt(index);
-        setIcon(note.icon);
-        app.setText(appName(note));
-        time.setText(relativeTime(note.when));
-        title.setText(note.title);
-        title.setVisibility(note.title.isEmpty() ? View.GONE : View.VISIBLE);
-        text.setText(note.text);
-        footer.setText(note.canReply ? "Tap to reply or dismiss" : "Tap for options");
-        position.setText((index - fixedCards() + 1) + " / " + notes.size());
+        StringBuilder sb = new StringBuilder();
+        sb.append("Pair code  ").append(PairCode.pretty(PairCode.get(this)));
+        BluetoothAdapter bt = BluetoothAdapter.getDefaultAdapter();
+        if (bt != null) sb.append("\nGlass address  ").append(bt.getAddress());
+        if (!connected) sb.append("\nTap to make Glass discoverable");
+        v.text.setText(sb);
+        int n = notes.size();
+        v.footer.setText(n == 0 ? "No notifications" : n == 1 ? "1 notification, swipe to view"
+                : n + " notifications, swipe to view");
+        v.position.setText("");
     }
 
-    private void renderWeather() {
+    private void bindWeather(CardViews v) {
         Weather w = weather;
-        icon.setVisibility(View.GONE);
-        weatherIcon.setImageResource(w.iconRes());
-        app.setText(w.place.isEmpty() ? getString(R.string.weather) : w.place);
-        time.setText(DateFormat.getTimeFormat(this).format(Calendar.getInstance().getTime()));
-        title.setVisibility(View.VISIBLE);
-        title.setText(w.temp + "\u00B0 " + w.desc);
+        v.icon.setVisibility(View.GONE);
+        v.weatherIcon.setImageResource(w.iconRes());
+        v.app.setText(w.place.isEmpty() ? getString(R.string.weather) : w.place);
+        v.time.setText(DateFormat.getTimeFormat(this).format(Calendar.getInstance().getTime()));
+        v.title.setText(w.temp + "\u00B0 " + w.desc);
         StringBuilder sb = new StringBuilder();
         sb.append("Feels like ").append(w.feels).append('\u00B0')
                 .append("   High ").append(w.high).append('\u00B0')
@@ -305,111 +357,29 @@ public class MainActivity extends Activity implements NotificationStore.Listener
                 sb.append(h.label).append(' ').append(h.temp).append('\u00B0');
             }
         }
-        text.setText(sb);
+        v.text.setText(sb);
         long minutes = (System.currentTimeMillis() - w.updated) / 60000;
         String age = minutes < 1 ? "just now" : minutes < 60 ? minutes + "m ago"
                 : minutes < 24 * 60 ? (minutes / 60) + "h ago" : "over a day ago";
-        footer.setText(weatherRefreshing ? "Updating\u2026" : "Updated " + age + ", tap to refresh");
-        position.setText("");
+        v.footer.setText(weatherRefreshing ? "Updating\u2026" : "Updated " + age + ", tap to refresh");
+        v.position.setText("");
     }
 
-    private void refreshWeather() {
-        weatherRefreshing = LinkService.requestWeather();
-        if (!weatherRefreshing) {
-            Toast.makeText(this, "Phone isn't connected", Toast.LENGTH_SHORT).show();
+    private void bindNote(CardViews v, NotificationStore.Note note, int index) {
+        if (note.icon == null) {
+            v.icon.setVisibility(View.GONE);
         } else {
-            // If nothing changes (phone says it's still fresh), stop showing "Updating".
-            handler.postDelayed(() -> {
-                weatherRefreshing = false;
-                render();
-            }, 20000);
+            v.icon.setImageBitmap(note.icon);
+            v.icon.setVisibility(View.VISIBLE);
         }
-    }
-
-    private void renderMenu() {
-        NotificationStore.Note note = noteFor(actionKey);
-        MenuItem item = menu.get(menuPos);
-        if (note != null) {
-            setIcon(note.icon);
-            app.setText(note.title.isEmpty() ? appName(note) : note.title);
-        }
-        time.setText("");
-        title.setVisibility(View.VISIBLE);
-        title.setText(item.label);
-        text.setText(item.kind == MenuItem.VOICE ? "Speak after the prompt" : "");
-        footer.setText("Tap to choose, swipe down to go back");
-        position.setText((menuPos + 1) + " / " + menu.size());
-    }
-
-    private void renderSending() {
-        NotificationStore.Note note = noteFor(actionKey);
-        if (note != null) {
-            setIcon(note.icon);
-            app.setText("Reply to " + (note.title.isEmpty() ? appName(note) : note.title));
-        }
-        time.setText("");
-        title.setVisibility(View.VISIBLE);
-        title.setText("Sending…");
-        text.setText("“" + replyText + "”");
-        footer.setText(mode == Mode.SENDING ? "Swipe down to cancel" : "Waiting for your phone");
-        position.setText("");
-    }
-
-    private void renderResult() {
-        time.setText("");
-        title.setVisibility(View.VISIBLE);
-        title.setText(resultOk ? "Sent" : "Not sent");
-        text.setText(resultMessage);
-        footer.setText("");
-        position.setText("");
-    }
-
-    @SuppressLint({"MissingPermission", "HardwareIds"}) // the address is shown so the user can type it on the phone
-    private void renderStatus(NotificationStore.LinkState link) {
-        icon.setImageResource(R.drawable.ic_launcher);
-        icon.setVisibility(View.VISIBLE);
-        app.setText(R.string.app_name);
-        time.setText(DateFormat.getTimeFormat(this).format(Calendar.getInstance().getTime()));
-        title.setVisibility(View.VISIBLE);
-        switch (link) {
-            case CONNECTED:
-                String peer = store.peerName();
-                title.setText("Connected to " + (peer == null ? "your phone" : peer));
-                break;
-            case BLUETOOTH_OFF:
-                title.setText("Bluetooth is off");
-                break;
-            default:
-                title.setText("Waiting for your phone");
-                break;
-        }
-        BluetoothAdapter bt = BluetoothAdapter.getDefaultAdapter();
-        StringBuilder sb = new StringBuilder();
-        sb.append("Pair code  ").append(PairCode.pretty(PairCode.get(this)));
-        if (bt != null) {
-            sb.append("\nGlass address  ").append(bt.getAddress());
-        }
-        if (link != NotificationStore.LinkState.CONNECTED) {
-            sb.append("\nTap to make Glass discoverable");
-        }
-        text.setText(sb);
-        int n = notes.size();
-        footer.setText(n == 0 ? "No notifications" : n == 1 ? "1 notification, swipe to view"
-                : n + " notifications, swipe to view");
-        position.setText("");
-    }
-
-    private void setIcon(Bitmap bitmap) {
-        if (bitmap == null) {
-            icon.setVisibility(View.GONE);
-        } else {
-            icon.setImageBitmap(bitmap);
-            icon.setVisibility(View.VISIBLE);
-        }
-    }
-
-    private static String appName(NotificationStore.Note note) {
-        return note.app.isEmpty() ? note.pkg : note.app;
+        v.app.setText(note.app.isEmpty() ? note.pkg : note.app);
+        v.time.setText(relativeTime(note.when));
+        v.title.setText(note.title);
+        v.title.setVisibility(note.title.isEmpty() ? View.GONE : View.VISIBLE);
+        v.text.setText(note.text);
+        v.footer.setText(note.canReply || !note.choices.isEmpty() ? "Tap to reply or dismiss" : "Tap for options");
+        int first = weather != null ? 2 : 1;
+        v.position.setText((index - first + 1) + " / " + notes.size());
     }
 
     private String relativeTime(long when) {
@@ -420,56 +390,84 @@ public class MainActivity extends Activity implements NotificationStore.Listener
         return DateFormat.getDateFormat(this).format(when);
     }
 
-    // ---- Menu and replies -----------------------------------------------------------------
+    // ---- Taps and the Glass menu ----------------------------------------------------------
 
-    private void openMenu(NotificationStore.Note note) {
-        List<MenuItem> items = new ArrayList<>();
+    private void onCardTapped(int position) {
+        userInteracted();
+        if (position < 0 || position >= cards.size()) return;
+        Card card = cards.get(position);
+        if (card.kind == Card.STATUS) {
+            if (store.linkState() == NotificationStore.LinkState.CONNECTED) {
+                play(Sounds.DISALLOWED);
+            } else {
+                play(Sounds.TAP);
+                requestDiscoverable();
+            }
+        } else if (card.kind == Card.WEATHER) {
+            play(Sounds.TAP);
+            refreshWeather();
+        } else {
+            play(Sounds.TAP);
+            actionKey = card.note.key;
+            openOptionsMenu();
+        }
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        return true;
+    }
+
+    @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        menu.clear();
+        NotificationStore.Note note = noteFor(actionKey);
+        if (note == null) return false;
+        int order = 0;
         if (note.canReply && voiceAvailable()) {
-            items.add(new MenuItem(MenuItem.VOICE, "Reply by voice", null));
+            menu.add(Menu.NONE, MENU_VOICE, order++, "Reply").setIcon(R.drawable.ic_menu_reply);
         }
-        for (String choice : note.choices) {
-            items.add(new MenuItem(MenuItem.QUICK, "“" + choice + "”", choice));
+        for (int i = 0; i < note.choices.size(); i++) {
+            menu.add(Menu.NONE, MENU_CHOICE_BASE + i, order++, note.choices.get(i))
+                    .setIcon(R.drawable.ic_menu_quick);
         }
-        items.add(new MenuItem(MenuItem.DISMISS, "Dismiss", null));
-        actionKey = note.key;
-        menu = items;
-        menuPos = 0;
-        mode = Mode.MENU;
-        render();
+        menu.add(Menu.NONE, MENU_DISMISS, order, "Dismiss").setIcon(R.drawable.ic_menu_dismiss);
+        return true;
     }
 
-    private void choose(MenuItem item) {
-        switch (item.kind) {
-            case MenuItem.VOICE:
-                startVoiceReply();
-                break;
-            case MenuItem.QUICK:
-                queueReply(item.text);
-                break;
-            default:
-                store.remove(actionKey);
-                LinkService.sendDismiss(actionKey);
-                mode = Mode.CARDS;
-                render();
-                break;
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        NotificationStore.Note note = noteFor(actionKey);
+        if (note == null) return true;
+        int id = item.getItemId();
+        if (id == MENU_VOICE) {
+            startVoiceReply(note);
+        } else if (id == MENU_DISMISS) {
+            play(Sounds.DISMISSED);
+            store.remove(note.key);
+            LinkService.sendDismiss(note.key);
+        } else if (id >= MENU_CHOICE_BASE && id - MENU_CHOICE_BASE < note.choices.size()) {
+            queueReply(note.choices.get(id - MENU_CHOICE_BASE));
         }
+        return true;
     }
+
+    // ---- Replies --------------------------------------------------------------------------
 
     private boolean voiceAvailable() {
         return !getPackageManager().queryIntentActivities(
                 new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH), 0).isEmpty();
     }
 
-    private void startVoiceReply() {
-        NotificationStore.Note note = noteFor(actionKey);
+    private void startVoiceReply(NotificationStore.Note note) {
         Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
                 .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 .putExtra(RecognizerIntent.EXTRA_PROMPT,
-                        note == null || note.title.isEmpty() ? "Reply" : "Reply to " + note.title);
+                        note.title.isEmpty() ? "Reply" : "Reply to " + note.title);
         try {
             startActivityForResult(intent, REQ_VOICE);
         } catch (ActivityNotFoundException e) {
-            showResult(false, "Voice input isn't available on this Glass");
+            showResult(false, "Voice input isn't available");
         }
     }
 
@@ -481,43 +479,122 @@ public class MainActivity extends Activity implements NotificationStore.Listener
                 : data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
         if (resultCode != RESULT_OK || results == null || results.isEmpty()
                 || results.get(0).trim().isEmpty()) {
-            // Cancelled, or the recognizer couldn't reach its server. Stay in the menu.
-            Toast.makeText(this, "Didn't catch that", Toast.LENGTH_SHORT).show();
-            return;
+            return; // cancelled
         }
         queueReply(results.get(0).trim());
     }
 
+    /** Shows the Glass "Sending" card; the reply goes out when the grace bar runs out. */
     private void queueReply(String reply) {
         replyText = reply;
-        mode = Mode.SENDING;
-        handler.postDelayed(sendNow, SEND_DELAY_MS);
-        render();
+        showOverlay(new CardBuilder(this, CardBuilder.Layout.MENU)
+                .setIcon(R.drawable.ic_menu_reply)
+                .setText("Sending")
+                .setFootnote("“" + reply + "”")
+                .getView());
+        grace = Slider.from(overlay).startGracePeriod(new Slider.GracePeriod.Listener() {
+            @Override
+            public void onGracePeriodEnd() {
+                grace = null;
+                sendPendingReply();
+            }
+
+            @Override
+            public void onGracePeriodCancel() {
+                grace = null;
+                play(Sounds.DISMISSED);
+                showCards();
+            }
+        });
+    }
+
+    private void cancelReply() {
+        if (grace != null) grace.cancel();
     }
 
     private void sendPendingReply() {
-        if (mode != Mode.SENDING) return;
         if (!LinkService.sendReply(actionKey, replyText)) {
             showResult(false, "Phone isn't connected");
             return;
         }
-        mode = Mode.WAITING;
+        waiting = Slider.from(overlay).startIndeterminate();
         handler.postDelayed(replyTimeout, REPLY_TIMEOUT_MS);
-        render();
+    }
+
+    @Override
+    public void onReplyResult(String key, boolean ok, String error) {
+        if (overlay == null || grace != null || !key.equals(actionKey)) return;
+        handler.removeCallbacks(replyTimeout);
+        showResult(ok, ok ? "" : error);
     }
 
     private void showResult(boolean ok, String message) {
-        handler.removeCallbacks(sendNow);
         handler.removeCallbacks(replyTimeout);
-        resultOk = ok;
-        resultMessage = message == null ? "" : message;
-        mode = Mode.RESULT;
-        render();
+        if (waiting != null) {
+            waiting.hide();
+            waiting = null;
+        }
+        play(ok ? Sounds.SUCCESS : Sounds.ERROR);
+        showOverlay(new CardBuilder(this, CardBuilder.Layout.MENU)
+                .setIcon(ok ? R.drawable.ic_done : R.drawable.ic_error)
+                .setText(ok ? "Sent" : "Not sent")
+                .setFootnote(message == null ? "" : message)
+                .getView());
         handler.postDelayed(backToCards, RESULT_SHOW_MS);
+    }
+
+    private void showOverlay(View view) {
+        handler.removeCallbacks(backToCards);
+        scroller.deactivate();
+        overlay = view;
+        setContentView(view);
+    }
+
+    private void showCards() {
+        handler.removeCallbacks(backToCards);
+        overlay = null;
+        setContentView(scroller);
+        scroller.activate();
+        refresh();
+    }
+
+    // ---- Weather and Bluetooth ------------------------------------------------------------
+
+    private void refreshWeather() {
+        weatherRefreshing = LinkService.requestWeather();
+        if (!weatherRefreshing) {
+            play(Sounds.DISALLOWED);
+            return;
+        }
+        adapter.notifyDataSetChanged();
+        // If nothing changes (the phone says it's still fresh), stop showing "updating".
+        handler.postDelayed(() -> {
+            if (weatherRefreshing) {
+                weatherRefreshing = false;
+                adapter.notifyDataSetChanged();
+            }
+        }, 20000);
+    }
+
+    private void requestDiscoverable() {
+        Intent intent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE)
+                .putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300);
+        try {
+            startActivity(intent);
+        } catch (ActivityNotFoundException | SecurityException e) {
+            play(Sounds.ERROR);
+        }
+    }
+
+    /** Glass system sounds. Their IDs extend AudioManager's, so lint doesn't know them. */
+    @SuppressLint("WrongConstant")
+    private void play(int glassSound) {
+        audio.playSoundEffect(glassSound);
     }
 
     // ---- Input ----------------------------------------------------------------------------
 
+    /** Any touch stops an alert from closing itself. */
     private void userInteracted() {
         if (alertMode) {
             alertMode = false;
@@ -526,96 +603,25 @@ public class MainActivity extends Activity implements NotificationStore.Listener
     }
 
     @Override
-    public boolean onGenericMotionEvent(MotionEvent event) {
-        return gestures.onMotion(event, root.getWidth()) || super.onGenericMotionEvent(event);
+    public boolean dispatchGenericMotionEvent(MotionEvent event) {
+        userInteracted();
+        return super.dispatchGenericMotionEvent(event);
     }
 
     @Override
-    public boolean onTouchEvent(MotionEvent event) {
-        return gestures.onMotion(event, root.getWidth()) || super.onTouchEvent(event);
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        // The card scroller consumes taps and swipes before onKeyDown sees them.
+        userInteracted();
+        return super.dispatchKeyEvent(event);
     }
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
-        return gestures.onKeyDown(keyCode, event) || super.onKeyDown(keyCode, event);
-    }
-
-    @Override
-    public void onNext() {
-        userInteracted();
-        if (mode == Mode.MENU) {
-            if (menuPos < menu.size() - 1) menuPos++;
-            render();
-        } else if (mode == Mode.CARDS && index < cardCount() - 1) {
-            index++;
-            render();
+        if (keyCode == KeyEvent.KEYCODE_BACK && overlay != null) {
+            // Swipe down during the grace period cancels the reply. Once it's sent, wait.
+            cancelReply();
+            return true;
         }
-    }
-
-    @Override
-    public void onPrevious() {
-        userInteracted();
-        if (mode == Mode.MENU) {
-            if (menuPos > 0) menuPos--;
-            render();
-        } else if (mode == Mode.CARDS && index > 0) {
-            index--;
-            render();
-        }
-    }
-
-    @Override
-    public void onTap() {
-        userInteracted();
-        switch (mode) {
-            case MENU:
-                choose(menu.get(menuPos));
-                return;
-            case CARDS:
-                break;
-            default:
-                return; // sending or showing a result
-        }
-        if (index == 0) {
-            if (store.linkState() != NotificationStore.LinkState.CONNECTED) requestDiscoverable();
-            return;
-        }
-        if (index == weatherIndex()) {
-            refreshWeather();
-            render();
-            return;
-        }
-        openMenu(noteAt(index));
-    }
-
-    @Override
-    public void onBack() {
-        switch (mode) {
-            case SENDING:
-                handler.removeCallbacks(sendNow);
-                mode = Mode.MENU;
-                render();
-                return;
-            case MENU:
-                mode = Mode.CARDS;
-                render();
-                return;
-            case WAITING:
-            case RESULT:
-                return; // already sent; let it finish
-            default:
-                finish();
-        }
-    }
-
-    private void requestDiscoverable() {
-        Intent intent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE)
-                .putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300);
-        try {
-            startActivity(intent);
-            Toast.makeText(this, "Discoverable for 5 minutes", Toast.LENGTH_SHORT).show();
-        } catch (ActivityNotFoundException | SecurityException e) {
-            Toast.makeText(this, "Use Settings > Bluetooth on Glass", Toast.LENGTH_LONG).show();
-        }
+        return super.onKeyDown(keyCode, event);
     }
 }

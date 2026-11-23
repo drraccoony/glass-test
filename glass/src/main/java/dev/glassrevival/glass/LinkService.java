@@ -13,7 +13,7 @@ import android.content.IntentFilter;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.AudioManager;
-import android.media.ToneGenerator;
+import com.google.android.glass.media.Sounds;
 import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Handler;
@@ -60,7 +60,8 @@ public class LinkService extends Service {
             JSONObject msg = new JSONObject();
             msg.put(Protocol.F_TYPE, Protocol.DISMISS);
             msg.put(Protocol.F_KEY, key);
-            svc.sendToPeer(msg);
+            boolean sent = svc.sendToPeer(msg);
+            Log.i(TAG, (sent ? "Sent dismiss for " : "Not connected, couldn't dismiss ") + key);
         } catch (JSONException e) {
             Log.w(TAG, "dismiss", e);
         }
@@ -108,7 +109,6 @@ public class LinkService extends Service {
     private volatile BluetoothServerSocket server;
     private Thread acceptThread;
     private Session session; // guarded by this
-    private ToneGenerator tone;
     private volatile int batteryPercent = -1;
     private volatile boolean charging;
 
@@ -123,11 +123,6 @@ public class LinkService extends Service {
                 .setSmallIcon(R.drawable.ic_launcher)
                 .setOngoing(true)
                 .build());
-        try {
-            tone = new ToneGenerator(AudioManager.STREAM_NOTIFICATION, 80);
-        } catch (RuntimeException e) {
-            Log.w(TAG, "No tone generator", e);
-        }
         registerReceiver(batteryReceiver, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
         // Show the last forecast right away, even before the phone reconnects.
         Weather saved = Weather.parse(getSharedPreferences("glasslink", MODE_PRIVATE)
@@ -155,7 +150,6 @@ public class LinkService extends Service {
         acceptThread.interrupt();
         unregisterReceiver(batteryReceiver);
         sender.shutdownNow();
-        if (tone != null) tone.release();
         super.onDestroy();
     }
 
@@ -399,7 +393,8 @@ public class LinkService extends Service {
             PowerManager.WakeLock wake = pm.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK
                     | PowerManager.ACQUIRE_CAUSES_WAKEUP | PowerManager.ON_AFTER_RELEASE, "GlassLink:alert");
             wake.acquire(5000);
-            if (tone != null) tone.startTone(ToneGenerator.TONE_PROP_BEEP, 150);
+            // The same chime Glass plays for its own notifications.
+            playGlassSound(Sounds.NOTIFICATION);
             Intent show = new Intent(this, MainActivity.class)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     .putExtra(MainActivity.EXTRA_ALERT_KEY, note.key);
@@ -415,6 +410,11 @@ public class LinkService extends Service {
             if (!s.isEmpty()) out.add(s);
         }
         return out;
+    }
+
+    @SuppressLint("WrongConstant") // Glass sound IDs extend AudioManager's
+    private void playGlassSound(int sound) {
+        ((AudioManager) getSystemService(AUDIO_SERVICE)).playSoundEffect(sound);
     }
 
     private static Bitmap decodeIcon(String base64) {

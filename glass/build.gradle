@@ -48,4 +48,6 @@ android {
 
 dependencies {
     implementation project(':protocol')
+    // The GDK comes from Glass itself (<uses-library> in the manifest), never packaged.
+    compileOnly project(':gdk-stubs')
 }

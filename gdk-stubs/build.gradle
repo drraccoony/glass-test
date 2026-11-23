@@ -1,0 +1,19 @@
+// Compile-time stand-ins for the Glass Development Kit (GDK). Glass ships the real
+// library as /system/framework/glass-core.jar, loaded through <uses-library>, so
+// these classes are never packaged into the app. Signatures and constant values
+// were taken from that jar on an Explorer Edition running XE24.
+plugins {
+    id 'com.android.library'
+}
+
+android {
+    namespace 'com.google.android.glass.stubs'
+    compileSdk 35
+    defaultConfig {
+        minSdk 19
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}

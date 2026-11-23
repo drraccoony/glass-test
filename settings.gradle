@@ -13,4 +13,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = 'glasslink'
-include ':protocol', ':glass', ':companion'
+include ':protocol', ':glass', ':companion', ':gdk-stubs'
