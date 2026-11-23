@@ -11,9 +11,11 @@ package dev.glassrevival.protocol;
  * phone -> glass   hello   {v, code, name}           must be the first frame
  * glass -> phone   welcome {v, name, battery, charging}
  * glass -> phone   reject  {reason}                  then Glass closes the socket
- * phone -> glass   notify  {key, pkg, app, title, text, when, alert, icon?}
+ * phone -> glass   notify  {key, pkg, app, title, text, when, alert, icon?, canReply?, choices?}
  * phone -> glass   remove  {key}
  * glass -> phone   dismiss {key}                     user dismissed it on Glass
+ * glass -> phone   reply   {key, text}               user replied on Glass
+ * phone -> glass   reply_result {key, ok, error?}
  * glass -> phone   status  {battery, charging}
  * either           ping / pong
  * </pre>
@@ -39,6 +41,8 @@ public final class Protocol {
     public static final String STATUS = "status";
     public static final String PING = "ping";
     public static final String PONG = "pong";
+    public static final String REPLY = "reply";
+    public static final String REPLY_RESULT = "reply_result";
 
     // Field names
     public static final String F_TYPE = "type";
@@ -56,6 +60,15 @@ public final class Protocol {
     public static final String F_ICON = "icon";
     public static final String F_BATTERY = "battery";
     public static final String F_CHARGING = "charging";
+    /** True when the notification has a reply action the phone can fill in. */
+    public static final String F_CAN_REPLY = "canReply";
+    /** Suggested replies, as a JSON array of strings. */
+    public static final String F_CHOICES = "choices";
+    public static final String F_OK = "ok";
+    public static final String F_ERROR = "error";
+
+    /** Most suggested replies sent with one notification. */
+    public static final int MAX_CHOICES = 6;
 
     // Reject reasons
     public static final String REASON_BAD_CODE = "bad_code";

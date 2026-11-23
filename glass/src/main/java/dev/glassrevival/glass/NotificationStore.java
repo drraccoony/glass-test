@@ -25,8 +25,11 @@ final class NotificationStore {
         final String text;
         final long when;
         final Bitmap icon;
+        final boolean canReply;
+        final List<String> choices;
 
-        Note(String key, String pkg, String app, String title, String text, long when, Bitmap icon) {
+        Note(String key, String pkg, String app, String title, String text, long when, Bitmap icon,
+             boolean canReply, List<String> choices) {
             this.key = key;
             this.pkg = pkg;
             this.app = app;
@@ -34,11 +37,16 @@ final class NotificationStore {
             this.text = text;
             this.when = when;
             this.icon = icon;
+            this.canReply = canReply;
+            this.choices = choices;
         }
     }
 
     interface Listener {
         void onStoreChanged();
+
+        /** The phone reported back on a reply sent from Glass. */
+        void onReplyResult(String key, boolean ok, String error);
     }
 
     private static final NotificationStore INSTANCE = new NotificationStore();
@@ -95,6 +103,12 @@ final class NotificationStore {
             linkState = state;
             peerName = peer;
             fire();
+        });
+    }
+
+    void replyResult(final String key, final boolean ok, final String error) {
+        main.post(() -> {
+            for (Listener l : listeners) l.onReplyResult(key, ok, error);
         });
     }
 

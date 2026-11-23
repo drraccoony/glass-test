@@ -64,6 +64,26 @@ public class LinkService extends Service {
         }
     }
 
+    /**
+     * Asks the phone to send a reply through the notification's reply action.
+     *
+     * @return false if no phone is connected
+     */
+    static boolean sendReply(String key, String text) {
+        LinkService svc = instance;
+        if (svc == null) return false;
+        try {
+            JSONObject msg = new JSONObject();
+            msg.put(Protocol.F_TYPE, Protocol.REPLY);
+            msg.put(Protocol.F_KEY, key);
+            msg.put(Protocol.F_TEXT, text);
+            return svc.sendToPeer(msg);
+        } catch (JSONException e) {
+            Log.w(TAG, "reply", e);
+            return false;
+        }
+    }
+
     private final NotificationStore store = NotificationStore.get();
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService sender = Executors.newSingleThreadExecutor();
@@ -169,12 +189,14 @@ public class LinkService extends Service {
         return session != null && session.authed;
     }
 
-    private void sendToPeer(JSONObject msg) {
+    private boolean sendToPeer(JSONObject msg) {
         Session s;
         synchronized (this) {
             s = session;
         }
-        if (s != null && s.authed) s.send(msg);
+        if (s == null || !s.authed) return false;
+        s.send(msg);
+        return true;
     }
 
     private void onSessionEnded(Session s) {
@@ -275,12 +297,17 @@ public class LinkService extends Service {
                         msg.optString(Protocol.F_TITLE),
                         msg.optString(Protocol.F_TEXT),
                         msg.optLong(Protocol.F_WHEN, System.currentTimeMillis()),
-                        decodeIcon(msg.optString(Protocol.F_ICON, null)));
+                        decodeIcon(msg.optString(Protocol.F_ICON, null)),
+                        msg.optBoolean(Protocol.F_CAN_REPLY, false),
+                        stringList(msg.optJSONArray(Protocol.F_CHOICES)));
                 boolean alert = msg.optBoolean(Protocol.F_ALERT, false);
                 store.upsert(note, alert);
                 if (alert) alertUser(note);
             } else if (Protocol.REMOVE.equals(type)) {
                 store.remove(msg.getString(Protocol.F_KEY));
+            } else if (Protocol.REPLY_RESULT.equals(type)) {
+                store.replyResult(msg.getString(Protocol.F_KEY), msg.optBoolean(Protocol.F_OK, false),
+                        msg.optString(Protocol.F_ERROR, ""));
             } else if (Protocol.PING.equals(type)) {
                 JSONObject pong = new JSONObject();
                 pong.put(Protocol.F_TYPE, Protocol.PONG);
@@ -328,6 +355,16 @@ public class LinkService extends Service {
                     .putExtra(MainActivity.EXTRA_ALERT_KEY, note.key);
             startActivity(show);
         });
+    }
+
+    private static java.util.List<String> stringList(org.json.JSONArray array) {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        if (array == null) return out;
+        for (int i = 0; i < array.length() && out.size() < Protocol.MAX_CHOICES; i++) {
+            String s = array.optString(i, "").trim();
+            if (!s.isEmpty()) out.add(s);
+        }
+        return out;
     }
 
     private static Bitmap decodeIcon(String base64) {

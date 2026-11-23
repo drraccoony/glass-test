@@ -75,6 +75,7 @@ public class MainActivity extends Activity implements LinkManager.Listener {
         findViewById(R.id.save).setOnClickListener(v -> save());
         findViewById(R.id.test).setOnClickListener(v -> sendTest());
         findViewById(R.id.muted).setOnClickListener(v -> editMutedApps());
+        findViewById(R.id.quick_replies).setOnClickListener(v -> editQuickReplies());
         enabled.setOnCheckedChangeListener((button, on) -> setForwarding(on));
 
         if (savedInstanceState == null) requestRuntimePermissions();
@@ -244,6 +245,28 @@ public class MainActivity extends Activity implements LinkManager.Listener {
                     else result.remove(apps.get(which)[1]);
                 })
                 .setPositiveButton(android.R.string.ok, (dialog, which) -> prefs.setMuted(result))
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private void editQuickReplies() {
+        final EditText input = new EditText(this);
+        input.setText(prefs.quickRepliesText());
+        input.setMinLines(4);
+        input.setGravity(android.view.Gravity.TOP);
+        int pad = (int) (20 * getResources().getDisplayMetrics().density);
+        android.widget.FrameLayout box = new android.widget.FrameLayout(this);
+        box.setPadding(pad, pad / 2, pad, 0);
+        box.addView(input);
+        new AlertDialog.Builder(this)
+                .setTitle("Quick replies")
+                .setMessage("One per line. Glass shows these when you reply to a message, "
+                        + "after any suggestions from the app.")
+                .setView(box)
+                .setPositiveButton(android.R.string.ok,
+                        (dialog, which) -> prefs.setQuickRepliesText(input.getText().toString()))
+                .setNeutralButton("Reset", (dialog, which) ->
+                        prefs.setQuickRepliesText(Prefs.DEFAULT_QUICK_REPLIES))
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
     }

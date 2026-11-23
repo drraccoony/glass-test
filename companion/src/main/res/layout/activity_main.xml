@@ -140,9 +140,15 @@
                 android:text="Muted apps" />
         </LinearLayout>
 
+        <Button
+            android:id="@+id/quick_replies"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Quick replies" />
+
         <TextView
             style="@style/Hint"
             android:layout_marginTop="12dp"
-            android:text="Ongoing notifications (music, downloads, navigation) and anything an app marks as phone-only are not sent. Dismissing a card on Glass clears it on the phone too." />
+            android:text="Ongoing notifications (music, downloads, navigation) and anything an app marks as phone-only are not sent. Dismissing a card on Glass clears it on the phone too. Messages from apps with a reply button can be answered from Glass." />
     </LinearLayout>
 </ScrollView>

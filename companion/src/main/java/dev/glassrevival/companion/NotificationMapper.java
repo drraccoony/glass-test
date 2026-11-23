@@ -3,6 +3,7 @@ package dev.glassrevival.companion;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.Person;
+import android.app.RemoteInput;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
@@ -18,8 +19,13 @@ import android.text.TextUtils;
 import android.util.Base64;
 import dev.glassrevival.protocol.Protocol;
 import java.io.ByteArrayOutputStream;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -39,6 +45,34 @@ final class NotificationMapper {
     private final Map<String, Integer> sent = new HashMap<>(); // key -> content hash
     private final Map<String, String> iconCache = new HashMap<>();
     private final Map<String, String> labelCache = new HashMap<>();
+    private final Map<String, ReplyTarget> replyTargets = new HashMap<>();
+    private final Map<String, Long> repliedAt = new HashMap<>();
+
+    private static final long REPLY_ECHO_MS = 15000;
+
+    /** The app's reply action for one notification, which Glass replies are sent through. */
+    static final class ReplyTarget {
+        final Notification.Action action;
+        final RemoteInput[] inputs;
+        final boolean freeForm;
+        final List<String> choices = new ArrayList<>();
+
+        ReplyTarget(Notification.Action action) {
+            this.action = action;
+            this.inputs = action.getRemoteInputs();
+            boolean any = false;
+            for (RemoteInput input : inputs) {
+                any |= input.getAllowFreeFormInput();
+                CharSequence[] c = input.getChoices();
+                if (c != null) {
+                    for (CharSequence s : c) {
+                        if (!TextUtils.isEmpty(s)) choices.add(s.toString());
+                    }
+                }
+            }
+            this.freeForm = any;
+        }
+    }
 
     NotificationMapper(Context context, Prefs prefs) {
         this.context = context;
@@ -77,9 +111,12 @@ final class NotificationMapper {
         if (prefs.isMuted(pkg)) return null;
 
         boolean mayAlert = true;
+        NotificationListenerService.Ranking ranking = null;
         if (rankingMap != null) {
-            NotificationListenerService.Ranking ranking = new NotificationListenerService.Ranking();
-            if (rankingMap.getRanking(sbn.getKey(), ranking)) {
+            ranking = new NotificationListenerService.Ranking();
+            if (!rankingMap.getRanking(sbn.getKey(), ranking)) {
+                ranking = null;
+            } else {
                 int importance = ranking.getImportance();
                 if (importance != NotificationManager.IMPORTANCE_UNSPECIFIED
                         && importance <= NotificationManager.IMPORTANCE_MIN) {
@@ -100,12 +137,19 @@ final class NotificationMapper {
         if (text.length() > MAX_TEXT) text = text.substring(0, MAX_TEXT - 1) + "…";
 
         String key = sbn.getKey();
+        // Refresh the reply action on every post: apps replace its PendingIntent on updates.
+        ReplyTarget target = findReplyTarget(n);
+        if (target != null) replyTargets.put(key, target); else replyTargets.remove(key);
         int hash = (title + "\u0000" + text).hashCode();
         Integer previous = sent.put(key, hash);
         if (previous != null && previous == hash) return null;
 
         boolean alertOnce = (n.flags & Notification.FLAG_ONLY_ALERT_ONCE) != 0;
-        boolean alert = !snapshot && mayAlert && !(previous != null && alertOnce);
+        // Apps usually update the conversation right after we reply; don't buzz for our own message.
+        Long replied = repliedAt.get(key);
+        boolean echoOfOurReply = replied != null
+                && System.currentTimeMillis() - replied < REPLY_ECHO_MS;
+        boolean alert = !snapshot && mayAlert && !echoOfOurReply && !(previous != null && alertOnce);
 
         try {
             JSONObject msg = new JSONObject();
@@ -119,6 +163,12 @@ final class NotificationMapper {
             msg.put(Protocol.F_ALERT, alert);
             String icon = iconFor(pkg);
             if (icon != null) msg.put(Protocol.F_ICON, icon);
+            if (target != null) {
+                // canReply means free text (voice) works; choices may exist either way.
+                msg.put(Protocol.F_CAN_REPLY, target.freeForm);
+                List<String> choices = choicesFor(target, ranking);
+                if (!choices.isEmpty()) msg.put(Protocol.F_CHOICES, new JSONArray(choices));
+            }
             return msg;
         } catch (JSONException e) {
             return null;
@@ -127,12 +177,66 @@ final class NotificationMapper {
 
     /** @return true if this key had been sent to Glass, so Glass should be told it's gone */
     synchronized boolean forget(String key) {
+        replyTargets.remove(key);
+        repliedAt.remove(key);
         return sent.remove(key) != null;
     }
 
     /** Called before a full resync after reconnecting. */
     synchronized void reset() {
         sent.clear();
+        replyTargets.clear();
+    }
+
+    synchronized ReplyTarget replyTarget(String key) {
+        return replyTargets.get(key);
+    }
+
+    synchronized void markReplied(String key) {
+        repliedAt.put(key, System.currentTimeMillis());
+    }
+
+    /**
+     * Picks the action to reply through. Prefers one the app marks as "reply", then any
+     * action that takes text input. Falls back to the Wear OS actions, which is where some
+     * apps put their only reply action.
+     */
+    private static ReplyTarget findReplyTarget(Notification n) {
+        Notification.Action best = pickReplyAction(n.actions);
+        if (best == null) {
+            @SuppressWarnings("deprecation")
+            List<Notification.Action> wear = new Notification.WearableExtender(n).getActions();
+            best = pickReplyAction(wear.toArray(new Notification.Action[0]));
+        }
+        return best == null || best.actionIntent == null ? null : new ReplyTarget(best);
+    }
+
+    private static Notification.Action pickReplyAction(Notification.Action[] actions) {
+        if (actions == null) return null;
+        Notification.Action fallback = null;
+        for (Notification.Action a : actions) {
+            RemoteInput[] inputs = a.getRemoteInputs();
+            if (inputs == null || inputs.length == 0) continue;
+            if (Build.VERSION.SDK_INT >= 28
+                    && a.getSemanticAction() == Notification.Action.SEMANTIC_ACTION_REPLY) {
+                return a;
+            }
+            if (fallback == null) fallback = a;
+        }
+        return fallback;
+    }
+
+    /** App suggestions first, then Android's smart replies, then the user's quick replies. */
+    private List<String> choicesFor(ReplyTarget target, NotificationListenerService.Ranking ranking) {
+        Set<String> out = new LinkedHashSet<>(target.choices);
+        if (Build.VERSION.SDK_INT >= 29 && ranking != null && target.freeForm) {
+            for (CharSequence s : ranking.getSmartReplies()) {
+                if (!TextUtils.isEmpty(s)) out.add(s.toString());
+            }
+        }
+        if (target.freeForm) out.addAll(prefs.quickReplies());
+        List<String> list = new ArrayList<>(out);
+        return list.size() > Protocol.MAX_CHOICES ? list.subList(0, Protocol.MAX_CHOICES) : list;
     }
 
     synchronized String iconFor(String pkg) {

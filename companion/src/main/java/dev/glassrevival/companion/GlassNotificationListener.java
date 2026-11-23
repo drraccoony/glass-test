@@ -1,5 +1,10 @@
 package dev.glassrevival.companion;
 
+import android.app.PendingIntent;
+import android.app.RemoteInput;
+import android.content.Intent;
+import android.os.Build;
+import android.os.Bundle;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
 import android.util.Log;
@@ -95,6 +100,33 @@ public class GlassNotificationListener extends NotificationListenerService imple
         } catch (SecurityException | IllegalStateException e) {
             Log.w(LinkManager.TAG, "Couldn't dismiss " + key, e);
         }
+    }
+
+    /** Fills in the app's reply action, the same way a smartwatch reply works. */
+    @Override
+    public String onGlassReply(String key, String text) {
+        NotificationMapper.ReplyTarget target = mapper.replyTarget(key);
+        if (target == null) return "That conversation is no longer on your phone";
+        Intent fillIn = new Intent();
+        Bundle results = new Bundle();
+        for (RemoteInput input : target.inputs) {
+            results.putCharSequence(input.getResultKey(), text);
+        }
+        RemoteInput.addResultsToIntent(target.inputs, fillIn, results);
+        if (Build.VERSION.SDK_INT >= 28) {
+            RemoteInput.setResultsSource(fillIn, RemoteInput.SOURCE_FREE_FORM_INPUT);
+        }
+        try {
+            target.action.actionIntent.send(this, 0, fillIn);
+        } catch (PendingIntent.CanceledException e) {
+            return "The app no longer accepts replies to this";
+        } catch (RuntimeException e) {
+            Log.w(LinkManager.TAG, "Reply failed", e);
+            return "The app refused the reply";
+        }
+        mapper.markReplied(key);
+        Log.i(LinkManager.TAG, "Sent reply from Glass for " + key);
+        return null;
     }
 
     private void sendRemove(String key) {

@@ -53,6 +53,9 @@ final class LinkManager {
         void onGlassConnected();
 
         void onGlassDismissed(String key);
+
+        /** @return null if the reply was handed to the app, otherwise a short reason */
+        String onGlassReply(String key, String text);
     }
 
     private final Context context;
@@ -272,6 +275,24 @@ final class LinkManager {
             Peer p = peer;
             String key = msg.optString(Protocol.F_KEY, null);
             if (p != null && key != null) p.onGlassDismissed(key);
+        } else if (Protocol.REPLY.equals(type)) {
+            String key = msg.optString(Protocol.F_KEY, null);
+            String text = msg.optString(Protocol.F_TEXT, "").trim();
+            Peer p = peer;
+            String error;
+            if (key == null || text.isEmpty()) error = "Empty reply";
+            else if (p == null) error = "Notification access is off on your phone";
+            else error = p.onGlassReply(key, text);
+            try {
+                JSONObject result = new JSONObject();
+                result.put(Protocol.F_TYPE, Protocol.REPLY_RESULT);
+                result.put(Protocol.F_KEY, key == null ? "" : key);
+                result.put(Protocol.F_OK, error == null);
+                if (error != null) result.put(Protocol.F_ERROR, error);
+                send(result);
+            } catch (JSONException ignored) {
+                // cannot happen
+            }
         } else if (Protocol.STATUS.equals(type)) {
             glassBattery = msg.optInt(Protocol.F_BATTERY, glassBattery);
             glassCharging = msg.optBoolean(Protocol.F_CHARGING, glassCharging);

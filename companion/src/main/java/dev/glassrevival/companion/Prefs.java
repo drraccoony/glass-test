@@ -13,6 +13,9 @@ final class Prefs {
     private static final String ENABLED = "enabled";
     private static final String MUTED = "muted_packages";
     private static final String SEEN = "seen_packages";
+    private static final String QUICK_REPLIES = "quick_replies";
+    static final String DEFAULT_QUICK_REPLIES =
+            "OK\nOn my way\nCan't talk now, I'll reply later\nThanks!";
 
     private final SharedPreferences sp;
     private final Set<String> seenCache;
@@ -57,6 +60,24 @@ final class Prefs {
 
     void setMuted(Set<String> packages) {
         sp.edit().putStringSet(MUTED, new HashSet<>(packages)).apply();
+    }
+
+    /** One reply per line, in the order they appear on Glass. */
+    String quickRepliesText() {
+        return sp.getString(QUICK_REPLIES, DEFAULT_QUICK_REPLIES);
+    }
+
+    void setQuickRepliesText(String text) {
+        sp.edit().putString(QUICK_REPLIES, text).apply();
+    }
+
+    java.util.List<String> quickReplies() {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        for (String line : quickRepliesText().split("\n")) {
+            String s = line.trim();
+            if (!s.isEmpty()) out.add(s);
+        }
+        return out;
     }
 
     /** Remembers apps that have posted notifications, so the mute list only shows relevant apps. */
