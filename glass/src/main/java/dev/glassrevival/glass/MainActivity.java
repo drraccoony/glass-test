@@ -273,7 +273,19 @@ public class MainActivity extends Activity implements NotificationStore.Listener
         final View linkDot;
         final TextView footer;
         final TextView position;
+        final View weatherDetails;
         final ImageView weatherIcon;
+        final TextView weatherTemp;
+        final TextView weatherDesc;
+        final TextView feels;
+        final TextView high;
+        final TextView low;
+        final TextView rain;
+        final TextView wind;
+        final View[] hours = new View[3];
+        final TextView[] hourLabels = new TextView[3];
+        final ImageView[] hourIcons = new ImageView[3];
+        final TextView[] hourTemps = new TextView[3];
 
         CardViews(View v) {
             icon = (ImageView) v.findViewById(R.id.icon);
@@ -284,7 +296,26 @@ public class MainActivity extends Activity implements NotificationStore.Listener
             linkDot = v.findViewById(R.id.link_dot);
             footer = (TextView) v.findViewById(R.id.footer);
             position = (TextView) v.findViewById(R.id.position);
+            weatherDetails = v.findViewById(R.id.weather_details);
             weatherIcon = (ImageView) v.findViewById(R.id.weather_icon);
+            weatherTemp = (TextView) v.findViewById(R.id.weather_temp);
+            weatherDesc = (TextView) v.findViewById(R.id.weather_desc);
+            feels = (TextView) v.findViewById(R.id.stat_feels);
+            high = (TextView) v.findViewById(R.id.stat_high);
+            low = (TextView) v.findViewById(R.id.stat_low);
+            rain = (TextView) v.findViewById(R.id.stat_rain);
+            wind = (TextView) v.findViewById(R.id.stat_wind);
+            int[][] ids = {
+                {R.id.hour_0, R.id.hour_0_label, R.id.hour_0_icon, R.id.hour_0_temp},
+                {R.id.hour_1, R.id.hour_1_label, R.id.hour_1_icon, R.id.hour_1_temp},
+                {R.id.hour_2, R.id.hour_2_label, R.id.hour_2_icon, R.id.hour_2_temp},
+            };
+            for (int i = 0; i < 3; i++) {
+                hours[i] = v.findViewById(ids[i][0]);
+                hourLabels[i] = (TextView) v.findViewById(ids[i][1]);
+                hourIcons[i] = (ImageView) v.findViewById(ids[i][2]);
+                hourTemps[i] = (TextView) v.findViewById(ids[i][3]);
+            }
         }
     }
 
@@ -293,12 +324,9 @@ public class MainActivity extends Activity implements NotificationStore.Listener
         v.linkDot.setBackgroundColor(getResources().getColor(
                 connected ? R.color.glass_green : R.color.glass_red));
         boolean weatherCard = card.kind == Card.WEATHER;
-        v.weatherIcon.setVisibility(weatherCard ? View.VISIBLE : View.GONE);
-        int iconRoom = weatherCard ? (int) (72 * getResources().getDisplayMetrics().density) : 0;
-        v.title.setPadding(0, 0, iconRoom, 0);
-        v.text.setPadding(0, 0, iconRoom, 0);
-        v.text.setTextSize(weatherCard ? 18 : 20);
-        v.title.setVisibility(View.VISIBLE);
+        v.weatherDetails.setVisibility(weatherCard ? View.VISIBLE : View.GONE);
+        v.title.setVisibility(weatherCard ? View.GONE : View.VISIBLE);
+        v.text.setVisibility(weatherCard ? View.GONE : View.VISIBLE);
         if (card.kind == Card.STATUS) {
             bindStatus(v, connected);
         } else if (weatherCard) {
@@ -341,30 +369,27 @@ public class MainActivity extends Activity implements NotificationStore.Listener
     private void bindWeather(CardViews v) {
         Weather w = weather;
         v.icon.setVisibility(View.GONE);
-        v.weatherIcon.setImageResource(w.iconRes());
         v.app.setText(w.place.isEmpty() ? getString(R.string.weather) : w.place);
         v.time.setText(DateFormat.getTimeFormat(this).format(Calendar.getInstance().getTime()));
-        v.title.setText(w.temp + "\u00B0 " + w.desc);
-        StringBuilder sb = new StringBuilder();
-        sb.append("Feels like ").append(w.feels).append('\u00B0')
-                .append("   High ").append(w.high).append('\u00B0')
-                .append("  Low ").append(w.low).append('\u00B0');
-        StringBuilder line2 = new StringBuilder();
-        if (w.rain >= 0) line2.append("Rain ").append(w.rain).append('%');
-        if (w.wind >= 0) {
-            if (line2.length() > 0) line2.append("   ");
-            line2.append("Wind ").append(w.wind).append(' ').append(w.windUnit);
-        }
-        if (line2.length() > 0) sb.append('\n').append(line2);
-        if (!w.hours.isEmpty()) {
-            sb.append('\n');
-            for (int i = 0; i < w.hours.size() && i < 3; i++) {
+        v.weatherIcon.setImageResource(w.iconRes());
+        v.weatherTemp.setText(w.temp + "\u00B0");
+        v.weatherDesc.setText(w.desc);
+        v.feels.setText(w.feels + "\u00B0");
+        v.high.setText(w.high + "\u00B0");
+        v.low.setText(w.low + "\u00B0");
+        v.rain.setText(w.rain >= 0 ? w.rain + "%" : "\u2013");
+        v.wind.setText(w.wind >= 0 ? w.wind + " " + w.windUnit : "\u2013");
+        for (int i = 0; i < 3; i++) {
+            if (i < w.hours.size()) {
                 Weather.Hour h = w.hours.get(i);
-                if (i > 0) sb.append("    ");
-                sb.append(h.label).append(' ').append(h.temp).append('\u00B0');
+                v.hours[i].setVisibility(View.VISIBLE);
+                v.hourLabels[i].setText(h.label);
+                v.hourIcons[i].setImageResource(h.iconRes());
+                v.hourTemps[i].setText(h.temp + "\u00B0");
+            } else {
+                v.hours[i].setVisibility(View.INVISIBLE);
             }
         }
-        v.text.setText(sb);
         long minutes = (System.currentTimeMillis() - w.updated) / 60000;
         String age = minutes < 1 ? "just now" : minutes < 60 ? minutes + "m ago"
                 : minutes < 24 * 60 ? (minutes / 60) + "h ago" : "over a day ago";

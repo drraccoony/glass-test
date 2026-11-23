@@ -15,11 +15,17 @@ final class Weather {
         final String label;
         final int temp;
         final String sky;
+        final boolean day;
 
-        Hour(String label, int temp, String sky) {
+        Hour(String label, int temp, String sky, boolean day) {
             this.label = label;
             this.temp = temp;
             this.sky = sky;
+            this.day = day;
+        }
+
+        int iconRes() {
+            return iconFor(sky, day);
         }
     }
 
@@ -59,7 +65,8 @@ final class Weather {
                 JSONObject h = arr.optJSONObject(i);
                 if (h == null || !h.has(Protocol.F_TEMP)) continue;
                 list.add(new Hour(h.optString(Protocol.F_LABEL, ""), h.getInt(Protocol.F_TEMP),
-                        h.optString(Protocol.F_SKY, Protocol.SKY_CLOUDY)));
+                        h.optString(Protocol.F_SKY, Protocol.SKY_CLOUDY),
+                        h.optBoolean(Protocol.F_DAY, true)));
             }
         }
         hours = Collections.unmodifiableList(list);
