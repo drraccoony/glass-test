@@ -6,12 +6,19 @@ import android.content.Context;
 public class CompanionApp extends Application {
     private LinkManager link;
     private Prefs prefs;
+    private WeatherProvider weather;
 
     @Override
     public void onCreate() {
         super.onCreate();
         prefs = new Prefs(this);
         link = new LinkManager(this, prefs);
+        weather = new WeatherProvider(this, prefs, link);
+        link.setWeatherHook(weather);
+    }
+
+    static WeatherProvider weather(Context context) {
+        return ((CompanionApp) context.getApplicationContext()).weather;
     }
 
     static LinkManager link(Context context) {

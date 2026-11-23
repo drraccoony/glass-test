@@ -58,6 +58,15 @@ final class LinkManager {
         String onGlassReply(String key, String text);
     }
 
+    /** Weather source, told when Glass connects or asks for an update. */
+    interface WeatherHook {
+        void onGlassConnected();
+
+        void onGlassRequest();
+    }
+
+    private volatile WeatherHook weatherHook;
+
     private final Context context;
     private final Prefs prefs;
     private final CopyOnWriteArrayList<Listener> listeners = new CopyOnWriteArrayList<>();
@@ -139,6 +148,10 @@ final class LinkManager {
 
     boolean glassCharging() {
         return glassCharging;
+    }
+
+    void setWeatherHook(WeatherHook hook) {
+        this.weatherHook = hook;
     }
 
     void setPeer(Peer peer) {
@@ -259,6 +272,8 @@ final class LinkManager {
         try {
             Peer p = peer;
             if (p != null) p.onGlassConnected();
+            WeatherHook w = weatherHook;
+            if (w != null) w.onGlassConnected();
             String frame;
             while ((frame = FrameIO.read(in)) != null) {
                 lastReceived = SystemClock.elapsedRealtime();
@@ -293,6 +308,9 @@ final class LinkManager {
             } catch (JSONException ignored) {
                 // cannot happen
             }
+        } else if (Protocol.WEATHER_REQUEST.equals(type)) {
+            WeatherHook w = weatherHook;
+            if (w != null) w.onGlassRequest();
         } else if (Protocol.STATUS.equals(type)) {
             glassBattery = msg.optInt(Protocol.F_BATTERY, glassBattery);
             glassCharging = msg.optBoolean(Protocol.F_CHARGING, glassCharging);

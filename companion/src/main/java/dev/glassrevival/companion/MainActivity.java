@@ -15,6 +15,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.text.TextUtils;
+import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Switch;
@@ -33,6 +34,7 @@ import org.json.JSONObject;
 public class MainActivity extends Activity implements LinkManager.Listener {
 
     private static final int REQ_PERMS = 1;
+    private static final int REQ_LOCATION = 2;
 
     private Prefs prefs;
     private LinkManager link;
@@ -46,6 +48,14 @@ public class MainActivity extends Activity implements LinkManager.Listener {
     private EditText address;
     private EditText code;
     private Switch enabled;
+    private Switch weatherEnabled;
+    private Switch weatherFahrenheit;
+    private TextView weatherPlace;
+    private TextView weatherLocationState;
+    private Button weatherLocationButton;
+    private View weatherLocationRow;
+    private TextView weatherStatus;
+    private WeatherProvider weather;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,6 +88,34 @@ public class MainActivity extends Activity implements LinkManager.Listener {
         findViewById(R.id.quick_replies).setOnClickListener(v -> editQuickReplies());
         enabled.setOnCheckedChangeListener((button, on) -> setForwarding(on));
 
+        weather = CompanionApp.weather(this);
+        weatherEnabled = findViewById(R.id.weather_enabled);
+        weatherFahrenheit = findViewById(R.id.weather_fahrenheit);
+        weatherPlace = findViewById(R.id.weather_place);
+        weatherLocationState = findViewById(R.id.weather_location_state);
+        weatherLocationButton = findViewById(R.id.weather_location_button);
+        weatherLocationRow = findViewById(R.id.weather_location_row);
+        weatherStatus = findViewById(R.id.weather_status);
+        weatherEnabled.setChecked(prefs.weatherEnabled());
+        weatherFahrenheit.setChecked(prefs.fahrenheit());
+        weatherEnabled.setOnCheckedChangeListener((b, on) -> {
+            prefs.setWeatherEnabled(on);
+            if (on) weather.settingsChanged();
+            refresh();
+        });
+        weatherFahrenheit.setOnCheckedChangeListener((b, on) -> {
+            prefs.setFahrenheit(on);
+            weather.settingsChanged();
+        });
+        findViewById(R.id.weather_place_button).setOnClickListener(v -> choosePlace());
+        weatherLocationButton.setOnClickListener(v -> requestLocation());
+        findViewById(R.id.weather_refresh).setOnClickListener(v -> {
+            weather.settingsChanged();
+            Toast.makeText(this, link.isConnected() ? "Updating weather on Glass"
+                    : "Will update when Glass connects", Toast.LENGTH_SHORT).show();
+            weatherStatus.postDelayed(this::refresh, 4000);
+        });
+
         if (savedInstanceState == null) requestRuntimePermissions();
     }
 
@@ -86,6 +124,7 @@ public class MainActivity extends Activity implements LinkManager.Listener {
         super.onResume();
         link.addListener(this);
         if (prefs.enabled()) GlassLinkService.startIfEnabled(this);
+        weather.rememberForegroundLocation();
         refresh();
     }
 
@@ -113,6 +152,26 @@ public class MainActivity extends Activity implements LinkManager.Listener {
         boolean bt = hasBluetoothPermission();
         btPermState.setText(bt ? "Bluetooth: allowed" : "Bluetooth: needed");
         btPermButton.setEnabled(!bt || !hasPostNotifications());
+
+        String place = prefs.placeName();
+        weatherPlace.setText(place == null ? "Location: this phone" : "Location: " + place);
+        boolean usingPhone = place == null;
+        weatherLocationRow.setVisibility(usingPhone ? View.VISIBLE : View.GONE);
+        if (!hasLocation()) {
+            weatherLocationState.setText("Location access: needed");
+            weatherLocationButton.setText("Allow");
+            weatherLocationButton.setEnabled(true);
+        } else if (!hasBackgroundLocation()) {
+            weatherLocationState.setText("Location: only while the app is open");
+            weatherLocationButton.setText("All the time");
+            weatherLocationButton.setEnabled(true);
+        } else {
+            weatherLocationState.setText("Location access: allowed");
+            weatherLocationButton.setText("Allowed");
+            weatherLocationButton.setEnabled(false);
+        }
+        String status = prefs.weatherStatus();
+        weatherStatus.setText(status.isEmpty() ? "Weather is fetched from open-meteo.com using a location rounded to about 1 km." : status);
     }
 
     // ---- Setup ----------------------------------------------------------------------------
@@ -271,6 +330,106 @@ public class MainActivity extends Activity implements LinkManager.Listener {
                 .show();
     }
 
+    // ---- Weather --------------------------------------------------------------------------
+
+    private void choosePlace() {
+        String[] options = {"Use this phone's location", "Search for a place\u2026"};
+        new AlertDialog.Builder(this)
+                .setTitle("Weather location")
+                .setItems(options, (d, which) -> {
+                    if (which == 0) {
+                        prefs.clearPlace();
+                        if (!hasLocation()) requestLocation();
+                        weather.settingsChanged();
+                        refresh();
+                    } else {
+                        searchPlace();
+                    }
+                })
+                .show();
+    }
+
+    private void searchPlace() {
+        final EditText input = new EditText(this);
+        input.setHint("City or town");
+        input.setSingleLine(true);
+        int pad = (int) (20 * getResources().getDisplayMetrics().density);
+        android.widget.FrameLayout box = new android.widget.FrameLayout(this);
+        box.setPadding(pad, pad / 2, pad, 0);
+        box.addView(input);
+        new AlertDialog.Builder(this)
+                .setTitle("Search for a place")
+                .setView(box)
+                .setPositiveButton("Search", (d, w) -> runSearch(input.getText().toString()))
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private void runSearch(final String query) {
+        if (query.trim().isEmpty()) return;
+        new Thread(() -> {
+            List<WeatherProvider.Place> found;
+            try {
+                found = WeatherProvider.search(query);
+            } catch (Exception e) {
+                runOnUiThread(() -> Toast.makeText(this, "Search failed. Check your connection.",
+                        Toast.LENGTH_LONG).show());
+                return;
+            }
+            final List<WeatherProvider.Place> places = found;
+            runOnUiThread(() -> showPlaces(places));
+        }, "GlassLink-place-search").start();
+    }
+
+    private void showPlaces(final List<WeatherProvider.Place> places) {
+        if (isFinishing()) return;
+        if (places.isEmpty()) {
+            Toast.makeText(this, "No places found", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String[] labels = new String[places.size()];
+        for (int i = 0; i < places.size(); i++) {
+            WeatherProvider.Place p = places.get(i);
+            labels[i] = p.detail.isEmpty() ? p.name : p.name + "\n" + p.detail;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("Choose a place")
+                .setItems(labels, (d, which) -> {
+                    WeatherProvider.Place p = places.get(which);
+                    prefs.setPlace(p.name, p.lat, p.lon);
+                    weather.settingsChanged();
+                    refresh();
+                })
+                .show();
+    }
+
+    private boolean hasLocation() {
+        return checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private boolean hasBackgroundLocation() {
+        return hasLocation() && checkSelfPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void requestLocation() {
+        if (!hasLocation()) {
+            requestPermissions(new String[] {Manifest.permission.ACCESS_COARSE_LOCATION}, REQ_LOCATION);
+            return;
+        }
+        // Android only grants "all the time" from its settings screen, after explaining why.
+        new AlertDialog.Builder(this)
+                .setTitle("Update weather in the background?")
+                .setMessage("Without this, Glass shows the weather for where your phone was the "
+                        + "last time you opened GlassLink. On the next screen, choose "
+                        + "\"Allow all the time\".")
+                .setPositiveButton("Continue", (d, w) -> requestPermissions(
+                        new String[] {Manifest.permission.ACCESS_BACKGROUND_LOCATION}, REQ_LOCATION))
+                .setNegativeButton("Not now", null)
+                .show();
+    }
+
     // ---- Permissions ----------------------------------------------------------------------
 
     private boolean hasNotificationAccess() {
@@ -304,6 +463,14 @@ public class MainActivity extends Activity implements LinkManager.Listener {
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
         super.onRequestPermissionsResult(requestCode, permissions, results);
+        if (requestCode == REQ_LOCATION) {
+            if (hasLocation()) {
+                weather.rememberForegroundLocation();
+                weather.settingsChanged();
+            }
+            refresh();
+            return;
+        }
         if (hasBluetoothPermission()) {
             GlassLinkService.startIfEnabled(this);
             link.poke();

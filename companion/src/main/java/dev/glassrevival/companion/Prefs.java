@@ -14,6 +14,17 @@ final class Prefs {
     private static final String MUTED = "muted_packages";
     private static final String SEEN = "seen_packages";
     private static final String QUICK_REPLIES = "quick_replies";
+    private static final String WEATHER_ON = "weather_enabled";
+    private static final String WEATHER_F = "weather_fahrenheit";
+    private static final String PLACE_NAME = "weather_place_name";
+    private static final String PLACE_LAT = "weather_place_lat";
+    private static final String PLACE_LON = "weather_place_lon";
+    private static final String LAST_LAT = "last_lat";
+    private static final String LAST_LON = "last_lon";
+    private static final String LAST_LOC_AT = "last_loc_at";
+    private static final String WEATHER_JSON = "weather_json";
+    private static final String WEATHER_AT = "weather_at";
+    private static final String WEATHER_STATUS = "weather_status";
     static final String DEFAULT_QUICK_REPLIES =
             "OK\nOn my way\nCan't talk now, I'll reply later\nThanks!";
 
@@ -78,6 +89,83 @@ final class Prefs {
             if (!s.isEmpty()) out.add(s);
         }
         return out;
+    }
+
+    // ---- Weather ----
+
+    boolean weatherEnabled() {
+        return sp.getBoolean(WEATHER_ON, true);
+    }
+
+    void setWeatherEnabled(boolean on) {
+        sp.edit().putBoolean(WEATHER_ON, on).apply();
+    }
+
+    boolean fahrenheit() {
+        if (sp.contains(WEATHER_F)) return sp.getBoolean(WEATHER_F, false);
+        // Default by region: the countries that still use Fahrenheit.
+        String country = java.util.Locale.getDefault().getCountry();
+        return java.util.Arrays.asList("US", "LR", "MM", "BS", "BZ", "KY", "PW").contains(country);
+    }
+
+    void setFahrenheit(boolean f) {
+        sp.edit().putBoolean(WEATHER_F, f).apply();
+    }
+
+    /** A fixed place chosen by the user, or null to use the phone's location. */
+    String placeName() {
+        return sp.getString(PLACE_NAME, null);
+    }
+
+    double[] placeCoords() {
+        if (placeName() == null) return null;
+        return new double[] {Double.parseDouble(sp.getString(PLACE_LAT, "0")),
+                Double.parseDouble(sp.getString(PLACE_LON, "0"))};
+    }
+
+    void setPlace(String name, double lat, double lon) {
+        sp.edit().putString(PLACE_NAME, name).putString(PLACE_LAT, Double.toString(lat))
+                .putString(PLACE_LON, Double.toString(lon)).apply();
+    }
+
+    void clearPlace() {
+        sp.edit().remove(PLACE_NAME).remove(PLACE_LAT).remove(PLACE_LON).apply();
+    }
+
+    void setLastLocation(double lat, double lon) {
+        sp.edit().putString(LAST_LAT, Double.toString(lat)).putString(LAST_LON, Double.toString(lon))
+                .putLong(LAST_LOC_AT, System.currentTimeMillis()).apply();
+    }
+
+    double[] lastLocation() {
+        if (!sp.contains(LAST_LAT)) return null;
+        return new double[] {Double.parseDouble(sp.getString(LAST_LAT, "0")),
+                Double.parseDouble(sp.getString(LAST_LON, "0"))};
+    }
+
+    String weatherJson() {
+        return sp.getString(WEATHER_JSON, null);
+    }
+
+    long weatherFetchedAt() {
+        return sp.getLong(WEATHER_AT, 0);
+    }
+
+    void setWeather(String json, long at) {
+        sp.edit().putString(WEATHER_JSON, json).putLong(WEATHER_AT, at).apply();
+    }
+
+    /** Clears the cached forecast so the next refresh fetches, e.g. after a settings change. */
+    void invalidateWeather() {
+        sp.edit().putLong(WEATHER_AT, 0).apply();
+    }
+
+    String weatherStatus() {
+        return sp.getString(WEATHER_STATUS, "");
+    }
+
+    void setWeatherStatus(String status) {
+        sp.edit().putString(WEATHER_STATUS, status).apply();
     }
 
     /** Remembers apps that have posted notifications, so the mute list only shows relevant apps. */

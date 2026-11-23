@@ -2,5 +2,7 @@
 <resources>
     <string name="app_name">GlassLink</string>
     <string name="voice_trigger">show notifications</string>
+    <string name="weather">Weather</string>
+    <string name="voice_trigger_weather">check the weather</string>
     <string name="service_running">Listening for your phone</string>
 </resources>

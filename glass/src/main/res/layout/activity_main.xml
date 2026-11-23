@@ -105,4 +105,15 @@
                 android:textSize="15sp" />
         </LinearLayout>
     </LinearLayout>
+
+    <!-- Large sky icon, only shown on the weather card. -->
+    <ImageView
+        android:id="@+id/weather_icon"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:layout_gravity="top|right"
+        android:layout_marginTop="46dp"
+        android:layout_marginRight="27dp"
+        android:scaleType="fitCenter"
+        android:visibility="gone" />
 </FrameLayout>

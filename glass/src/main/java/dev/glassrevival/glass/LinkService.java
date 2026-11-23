@@ -42,6 +42,8 @@ public class LinkService extends Service {
 
     static final String TAG = "GlassLink";
     private static final long AUTH_TIMEOUT_MS = 10000;
+    /** The phone pings every 25 s, so this much silence means the link is dead. */
+    private static final long IDLE_TIMEOUT_MS = 75000;
     private static final UUID SERVICE_UUID = UUID.fromString(Protocol.SERVICE_UUID);
 
     private static volatile LinkService instance;
@@ -84,6 +86,19 @@ public class LinkService extends Service {
         }
     }
 
+    /** Asks the phone for fresh weather. */
+    static boolean requestWeather() {
+        LinkService svc = instance;
+        if (svc == null) return false;
+        try {
+            return svc.sendToPeer(new JSONObject().put(Protocol.F_TYPE, Protocol.WEATHER_REQUEST));
+        } catch (JSONException e) {
+            return false;
+        }
+    }
+
+    private static final String WEATHER_PREF = "last_weather";
+
     private final NotificationStore store = NotificationStore.get();
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService sender = Executors.newSingleThreadExecutor();
@@ -114,6 +129,10 @@ public class LinkService extends Service {
             Log.w(TAG, "No tone generator", e);
         }
         registerReceiver(batteryReceiver, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        // Show the last forecast right away, even before the phone reconnects.
+        Weather saved = Weather.parse(getSharedPreferences("glasslink", MODE_PRIVATE)
+                .getString(WEATHER_PREF, null));
+        if (saved != null) store.setWeather(saved);
         running = true;
         acceptThread = new Thread(this::acceptLoop, "GlassLink-accept");
         acceptThread.start();
@@ -165,7 +184,16 @@ public class LinkService extends Service {
                 while (running) {
                     BluetoothSocket socket = server.accept();
                     Log.i(TAG, "Incoming connection from " + socket.getRemoteDevice().getAddress());
-                    startSession(socket);
+                    // Serve one phone at a time. On KitKat, calling accept() again while a
+                    // session is open fails, and closing the failed server socket also kills
+                    // the open session. Dead sessions are cut by the idle timeout instead.
+                    Session s = startSession(socket);
+                    try {
+                        s.join();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
                 }
             } catch (IOException e) {
                 if (running) Log.w(TAG, "Server socket error, restarting", e);
@@ -177,12 +205,11 @@ public class LinkService extends Service {
         }
     }
 
-    private synchronized void startSession(BluetoothSocket socket) {
-        // A new connection replaces the old one. Phones reconnect after a link drops,
-        // and the old socket may not have noticed yet.
+    private synchronized Session startSession(BluetoothSocket socket) {
         if (session != null) session.close();
         session = new Session(socket);
         session.start();
+        return session;
     }
 
     private synchronized boolean hasAuthedSession() {
@@ -213,6 +240,18 @@ public class LinkService extends Service {
         private final BluetoothSocket socket;
         private OutputStream out;
         volatile boolean authed;
+        private volatile long lastReceived = android.os.SystemClock.elapsedRealtime();
+        private final Runnable idleCheck = new Runnable() {
+            @Override
+            public void run() {
+                if (android.os.SystemClock.elapsedRealtime() - lastReceived > IDLE_TIMEOUT_MS) {
+                    Log.i(TAG, "No word from the phone, closing the link");
+                    close();
+                } else {
+                    main.postDelayed(this, 15000);
+                }
+            }
+        };
 
         Session(BluetoothSocket socket) {
             super("GlassLink-session");
@@ -228,12 +267,14 @@ public class LinkService extends Service {
                 }
             };
             main.postDelayed(authTimeout, AUTH_TIMEOUT_MS);
+            main.postDelayed(idleCheck, 15000);
             try {
                 InputStream in = socket.getInputStream();
                 out = socket.getOutputStream();
                 if (!handshake(FrameIO.read(in))) return;
                 String frame;
                 while ((frame = FrameIO.read(in)) != null) {
+                    lastReceived = android.os.SystemClock.elapsedRealtime();
                     handle(new JSONObject(frame));
                 }
                 Log.i(TAG, "Peer closed the connection");
@@ -241,6 +282,7 @@ public class LinkService extends Service {
                 Log.i(TAG, "Session ended: " + e);
             } finally {
                 main.removeCallbacks(authTimeout);
+                main.removeCallbacks(idleCheck);
                 close();
                 onSessionEnded(this);
             }
@@ -305,6 +347,14 @@ public class LinkService extends Service {
                 if (alert) alertUser(note);
             } else if (Protocol.REMOVE.equals(type)) {
                 store.remove(msg.getString(Protocol.F_KEY));
+            } else if (Protocol.WEATHER.equals(type)) {
+                String json = msg.toString();
+                Weather w = Weather.parse(json);
+                if (w != null) {
+                    store.setWeather(w);
+                    getSharedPreferences("glasslink", MODE_PRIVATE).edit()
+                            .putString(WEATHER_PREF, json).apply();
+                }
             } else if (Protocol.REPLY_RESULT.equals(type)) {
                 store.replyResult(msg.getString(Protocol.F_KEY), msg.optBoolean(Protocol.F_OK, false),
                         msg.optString(Protocol.F_ERROR, ""));

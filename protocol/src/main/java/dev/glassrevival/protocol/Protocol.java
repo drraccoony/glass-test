@@ -16,6 +16,9 @@ package dev.glassrevival.protocol;
  * glass -> phone   dismiss {key}                     user dismissed it on Glass
  * glass -> phone   reply   {key, text}               user replied on Glass
  * phone -> glass   reply_result {key, ok, error?}
+ * phone -> glass   weather {place, temp, feels, desc, sky, day, high, low, rain, wind,
+ *                            unit, windUnit, updated, hours: [{label, temp, sky}]}
+ * glass -> phone   weather_request                   user asked for fresh weather
  * glass -> phone   status  {battery, charging}
  * either           ping / pong
  * </pre>
@@ -43,6 +46,8 @@ public final class Protocol {
     public static final String PONG = "pong";
     public static final String REPLY = "reply";
     public static final String REPLY_RESULT = "reply_result";
+    public static final String WEATHER = "weather";
+    public static final String WEATHER_REQUEST = "weather_request";
 
     // Field names
     public static final String F_TYPE = "type";
@@ -64,6 +69,31 @@ public final class Protocol {
     public static final String F_CAN_REPLY = "canReply";
     /** Suggested replies, as a JSON array of strings. */
     public static final String F_CHOICES = "choices";
+    // Weather fields. "sky" is one of the SKY_* values below.
+    public static final String F_PLACE = "place";
+    public static final String F_TEMP = "temp";
+    public static final String F_FEELS = "feels";
+    public static final String F_DESC = "desc";
+    public static final String F_SKY = "sky";
+    public static final String F_DAY = "day";
+    public static final String F_HIGH = "high";
+    public static final String F_LOW = "low";
+    public static final String F_RAIN = "rain";
+    public static final String F_WIND = "wind";
+    public static final String F_UNIT = "unit";
+    public static final String F_WIND_UNIT = "windUnit";
+    public static final String F_UPDATED = "updated";
+    public static final String F_HOURS = "hours";
+    public static final String F_LABEL = "label";
+
+    public static final String SKY_CLEAR = "clear";
+    public static final String SKY_PARTLY = "partly";
+    public static final String SKY_CLOUDY = "cloudy";
+    public static final String SKY_FOG = "fog";
+    public static final String SKY_RAIN = "rain";
+    public static final String SKY_SNOW = "snow";
+    public static final String SKY_STORM = "storm";
+
     public static final String F_OK = "ok";
     public static final String F_ERROR = "error";
 

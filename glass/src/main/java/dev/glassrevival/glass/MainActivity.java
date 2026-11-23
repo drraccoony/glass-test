@@ -23,8 +23,8 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Card viewer. Card 0 shows the link status and pair code, the rest are
- * notifications, newest first. Swipe to move, tap for options, swipe down to leave.
+ * Card viewer. Card 0 shows the link status and pair code, card 1 the weather (once the
+ * phone has sent a forecast), the rest are notifications, newest first. Swipe to move, tap for options, swipe down to leave.
  *
  * <p>Tapping a notification opens a menu: reply by voice, quick replies and dismiss.
  * A chosen reply waits two seconds before sending, so a swipe down can cancel it.
@@ -40,6 +40,7 @@ public class MainActivity extends Activity implements NotificationStore.Listener
     private static final long REPLY_TIMEOUT_MS = 15000;
     private static final long RESULT_SHOW_MS = 1800;
     private static final int REQ_VOICE = 1;
+    private static final long WEATHER_STALE_MS = 30 * 60 * 1000L;
 
     private enum Mode { CARDS, MENU, SENDING, WAITING, RESULT }
 
@@ -78,10 +79,14 @@ public class MainActivity extends Activity implements NotificationStore.Listener
     private View linkDot;
     private TextView footer;
     private TextView position;
+    private ImageView weatherIcon;
     private View root;
 
     private List<NotificationStore.Note> notes = Collections.emptyList();
-    private int index; // 0 is the status card
+    private Weather weather;
+    private int index; // 0 is the status card, then weather if present, then notes
+    private boolean pendingWeatherCard;
+    private boolean weatherRefreshing;
     private String pendingAlertKey;
     private boolean alertMode;
 
@@ -109,6 +114,7 @@ public class MainActivity extends Activity implements NotificationStore.Listener
         linkDot = findViewById(R.id.link_dot);
         footer = (TextView) findViewById(R.id.footer);
         position = (TextView) findViewById(R.id.position);
+        weatherIcon = (ImageView) findViewById(R.id.weather_icon);
 
         LinkService.start(this);
         handleIntent(getIntent());
@@ -124,6 +130,13 @@ public class MainActivity extends Activity implements NotificationStore.Listener
     private void handleIntent(Intent intent) {
         String key = intent.getStringExtra(EXTRA_ALERT_KEY);
         handler.removeCallbacks(alertTimeout);
+        // "ok glass, check the weather" arrives through the WeatherAlias component.
+        if (intent.getComponent() != null
+                && intent.getComponent().getClassName().endsWith(".WeatherAlias")) {
+            pendingWeatherCard = true;
+            Weather w = store.weather();
+            if (w == null || System.currentTimeMillis() - w.updated > WEATHER_STALE_MS) refreshWeather();
+        }
         // Don't yank the user out of a menu or a reply in progress.
         if (mode != Mode.CARDS) key = null;
         alertMode = key != null;
@@ -163,18 +176,44 @@ public class MainActivity extends Activity implements NotificationStore.Listener
         showResult(ok, ok ? "" : error);
     }
 
+    private int fixedCards() {
+        return weather != null ? 2 : 1;
+    }
+
+    private int weatherIndex() {
+        return weather != null ? 1 : -1;
+    }
+
+    private int cardCount() {
+        return fixedCards() + notes.size();
+    }
+
+    private NotificationStore.Note noteAt(int cardIndex) {
+        int i = cardIndex - fixedCards();
+        return i >= 0 && i < notes.size() ? notes.get(i) : null;
+    }
+
     private void refresh() {
-        String currentKey = index > 0 && index <= notes.size() ? notes.get(index - 1).key : null;
+        NotificationStore.Note current = noteAt(index);
+        String currentKey = current == null ? null : current.key;
+        boolean onWeather = index == weatherIndex();
+        Weather previous = weather;
         notes = store.notes();
+        weather = store.weather();
+        if (weather != previous) weatherRefreshing = false;
         String target = pendingAlertKey != null ? pendingAlertKey : currentKey;
-        if (target != null) {
-            int found = findIndex(target);
-            if (found >= 0) {
-                index = found + 1;
-                if (target.equals(pendingAlertKey)) pendingAlertKey = null;
-            }
+        int found = findIndex(target);
+        if (found >= 0) {
+            index = found + fixedCards();
+            if (target.equals(pendingAlertKey)) pendingAlertKey = null;
+        } else if (onWeather && weather != null) {
+            index = weatherIndex();
         }
-        index = Math.max(0, Math.min(index, notes.size()));
+        if (pendingWeatherCard && weather != null && pendingAlertKey == null) {
+            index = weatherIndex();
+            pendingWeatherCard = false;
+        }
+        index = Math.max(0, Math.min(index, cardCount() - 1));
         // The notification went away (cleared on the phone) while its menu was open.
         if (mode == Mode.MENU && findIndex(actionKey) < 0) mode = Mode.CARDS;
         render();
@@ -199,6 +238,16 @@ public class MainActivity extends Activity implements NotificationStore.Listener
         NotificationStore.LinkState link = store.linkState();
         linkDot.setBackgroundColor(getResources().getColor(
                 link == NotificationStore.LinkState.CONNECTED ? R.color.glass_green : R.color.glass_red));
+        boolean weatherCard = mode == Mode.CARDS && index == weatherIndex();
+        weatherIcon.setVisibility(weatherCard ? View.VISIBLE : View.GONE);
+        int iconRoom = weatherCard ? (int) (72 * getResources().getDisplayMetrics().density) : 0;
+        title.setPadding(0, 0, iconRoom, 0);
+        text.setPadding(0, 0, iconRoom, 0);
+        text.setTextSize(weatherCard ? 18 : 20);
+        if (weatherCard) {
+            renderWeather();
+            return;
+        }
 
         switch (mode) {
             case MENU:
@@ -218,7 +267,7 @@ public class MainActivity extends Activity implements NotificationStore.Listener
             renderStatus(link);
             return;
         }
-        NotificationStore.Note note = notes.get(index - 1);
+        NotificationStore.Note note = noteAt(index);
         setIcon(note.icon);
         app.setText(appName(note));
         time.setText(relativeTime(note.when));
@@ -226,7 +275,55 @@ public class MainActivity extends Activity implements NotificationStore.Listener
         title.setVisibility(note.title.isEmpty() ? View.GONE : View.VISIBLE);
         text.setText(note.text);
         footer.setText(note.canReply ? "Tap to reply or dismiss" : "Tap for options");
-        position.setText(index + " / " + notes.size());
+        position.setText((index - fixedCards() + 1) + " / " + notes.size());
+    }
+
+    private void renderWeather() {
+        Weather w = weather;
+        icon.setVisibility(View.GONE);
+        weatherIcon.setImageResource(w.iconRes());
+        app.setText(w.place.isEmpty() ? getString(R.string.weather) : w.place);
+        time.setText(DateFormat.getTimeFormat(this).format(Calendar.getInstance().getTime()));
+        title.setVisibility(View.VISIBLE);
+        title.setText(w.temp + "\u00B0 " + w.desc);
+        StringBuilder sb = new StringBuilder();
+        sb.append("Feels like ").append(w.feels).append('\u00B0')
+                .append("   High ").append(w.high).append('\u00B0')
+                .append("  Low ").append(w.low).append('\u00B0');
+        StringBuilder line2 = new StringBuilder();
+        if (w.rain >= 0) line2.append("Rain ").append(w.rain).append('%');
+        if (w.wind >= 0) {
+            if (line2.length() > 0) line2.append("   ");
+            line2.append("Wind ").append(w.wind).append(' ').append(w.windUnit);
+        }
+        if (line2.length() > 0) sb.append('\n').append(line2);
+        if (!w.hours.isEmpty()) {
+            sb.append('\n');
+            for (int i = 0; i < w.hours.size() && i < 3; i++) {
+                Weather.Hour h = w.hours.get(i);
+                if (i > 0) sb.append("    ");
+                sb.append(h.label).append(' ').append(h.temp).append('\u00B0');
+            }
+        }
+        text.setText(sb);
+        long minutes = (System.currentTimeMillis() - w.updated) / 60000;
+        String age = minutes < 1 ? "just now" : minutes < 60 ? minutes + "m ago"
+                : minutes < 24 * 60 ? (minutes / 60) + "h ago" : "over a day ago";
+        footer.setText(weatherRefreshing ? "Updating\u2026" : "Updated " + age + ", tap to refresh");
+        position.setText("");
+    }
+
+    private void refreshWeather() {
+        weatherRefreshing = LinkService.requestWeather();
+        if (!weatherRefreshing) {
+            Toast.makeText(this, "Phone isn't connected", Toast.LENGTH_SHORT).show();
+        } else {
+            // If nothing changes (phone says it's still fresh), stop showing "Updating".
+            handler.postDelayed(() -> {
+                weatherRefreshing = false;
+                render();
+            }, 20000);
+        }
     }
 
     private void renderMenu() {
@@ -449,7 +546,7 @@ public class MainActivity extends Activity implements NotificationStore.Listener
         if (mode == Mode.MENU) {
             if (menuPos < menu.size() - 1) menuPos++;
             render();
-        } else if (mode == Mode.CARDS && index < notes.size()) {
+        } else if (mode == Mode.CARDS && index < cardCount() - 1) {
             index++;
             render();
         }
@@ -483,7 +580,12 @@ public class MainActivity extends Activity implements NotificationStore.Listener
             if (store.linkState() != NotificationStore.LinkState.CONNECTED) requestDiscoverable();
             return;
         }
-        openMenu(notes.get(index - 1));
+        if (index == weatherIndex()) {
+            refreshWeather();
+            render();
+            return;
+        }
+        openMenu(noteAt(index));
     }
 
     @Override
