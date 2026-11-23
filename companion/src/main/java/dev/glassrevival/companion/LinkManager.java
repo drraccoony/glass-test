@@ -170,6 +170,16 @@ final class LinkManager {
         listeners.remove(l);
     }
 
+    /** Tells Glass the phone's time zone changed, e.g. after travelling. */
+    void sendTimeZone() {
+        try {
+            send(new JSONObject().put(Protocol.F_TYPE, Protocol.CLOCK)
+                    .put(Protocol.F_TIMEZONE, java.util.TimeZone.getDefault().getID()));
+        } catch (JSONException ignored) {
+            // cannot happen
+        }
+    }
+
     /** Queues a message for Glass. Dropped silently when not connected. */
     void send(JSONObject msg) {
         if (!isConnected()) return;
@@ -244,6 +254,7 @@ final class LinkManager {
         hello.put(Protocol.F_VERSION, Protocol.VERSION);
         hello.put(Protocol.F_CODE, prefs.pairCode());
         hello.put(Protocol.F_NAME, phoneName());
+        hello.put(Protocol.F_TIMEZONE, java.util.TimeZone.getDefault().getID());
         write(hello.toString());
 
         String first = FrameIO.read(in);

@@ -299,6 +299,7 @@ public class LinkService extends Service {
                 return false;
             }
             authed = true;
+            applyTimeZone(hello.optString(Protocol.F_TIMEZONE, ""));
             String peer = hello.optString(Protocol.F_NAME, "your phone");
             Log.i(TAG, "Paired with " + peer);
             // The phone resends everything that is still active, so start clean.
@@ -341,6 +342,8 @@ public class LinkService extends Service {
                 if (alert) alertUser(note);
             } else if (Protocol.REMOVE.equals(type)) {
                 store.remove(msg.getString(Protocol.F_KEY));
+            } else if (Protocol.CLOCK.equals(type)) {
+                applyTimeZone(msg.optString(Protocol.F_TIMEZONE, ""));
             } else if (Protocol.WEATHER.equals(type)) {
                 String json = msg.toString();
                 Weather w = Weather.parse(json);
@@ -410,6 +413,24 @@ public class LinkService extends Service {
             if (!s.isEmpty()) out.add(s);
         }
         return out;
+    }
+
+    /**
+     * Glass has no cell radio, so its automatic time zone never updates. MyGlass used to
+     * set it from the phone; now GlassLink does.
+     */
+    private void applyTimeZone(String tz) {
+        if (tz.isEmpty() || tz.equals(java.util.TimeZone.getDefault().getID())) return;
+        if (!java.util.Arrays.asList(java.util.TimeZone.getAvailableIDs()).contains(tz)) {
+            Log.w(TAG, "Unknown time zone from phone: " + tz);
+            return;
+        }
+        try {
+            ((android.app.AlarmManager) getSystemService(ALARM_SERVICE)).setTimeZone(tz);
+            Log.i(TAG, "Time zone set to " + tz);
+        } catch (RuntimeException e) {
+            Log.w(TAG, "Couldn't set time zone", e);
+        }
     }
 
     @SuppressLint("WrongConstant") // Glass sound IDs extend AudioManager's

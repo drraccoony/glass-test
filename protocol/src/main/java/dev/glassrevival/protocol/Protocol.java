@@ -8,7 +8,8 @@ package dev.glassrevival.protocol;
  * bytes of UTF-8 JSON. Each JSON object has a {@code "type"} field.
  *
  * <pre>
- * phone -> glass   hello   {v, code, name}           must be the first frame
+ * phone -> glass   hello   {v, code, name, tz?}      must be the first frame
+ * phone -> glass   clock   {tz}                      the phone's time zone changed
  * glass -> phone   welcome {v, name, battery, charging}
  * glass -> phone   reject  {reason}                  then Glass closes the socket
  * phone -> glass   notify  {key, pkg, app, title, text, when, alert, icon?, canReply?, choices?}
@@ -47,6 +48,7 @@ public final class Protocol {
     public static final String REPLY = "reply";
     public static final String REPLY_RESULT = "reply_result";
     public static final String WEATHER = "weather";
+    public static final String CLOCK = "clock";
     public static final String WEATHER_REQUEST = "weather_request";
 
     // Field names
@@ -93,6 +95,9 @@ public final class Protocol {
     public static final String SKY_RAIN = "rain";
     public static final String SKY_SNOW = "snow";
     public static final String SKY_STORM = "storm";
+
+    /** An IANA time zone ID such as "America/Chicago". */
+    public static final String F_TIMEZONE = "tz";
 
     public static final String F_OK = "ok";
     public static final String F_ERROR = "error";

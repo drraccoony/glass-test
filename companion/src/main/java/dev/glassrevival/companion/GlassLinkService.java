@@ -67,6 +67,7 @@ public class GlassLinkService extends Service implements LinkManager.Listener {
             return;
         }
         registerReceiver(bluetoothReceiver, new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED));
+        registerReceiver(timeZoneReceiver, new IntentFilter(Intent.ACTION_TIMEZONE_CHANGED));
         receiverRegistered = true;
         link.addListener(this);
         link.start();
@@ -81,7 +82,10 @@ public class GlassLinkService extends Service implements LinkManager.Listener {
     public void onDestroy() {
         link.removeListener(this);
         link.stop();
-        if (receiverRegistered) unregisterReceiver(bluetoothReceiver);
+        if (receiverRegistered) {
+            unregisterReceiver(bluetoothReceiver);
+            unregisterReceiver(timeZoneReceiver);
+        }
         super.onDestroy();
     }
 
@@ -108,6 +112,13 @@ public class GlassLinkService extends Service implements LinkManager.Listener {
                 .setCategory(Notification.CATEGORY_SERVICE)
                 .build();
     }
+
+    private final BroadcastReceiver timeZoneReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            link.sendTimeZone();
+        }
+    };
 
     private final BroadcastReceiver bluetoothReceiver = new BroadcastReceiver() {
         @Override
