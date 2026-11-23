@@ -1,2 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<trigger keyword="@string/voice_trigger_weather" />
+<!-- A command from Glass's built-in list ("ok glass, show me the weather"). Those come with
+     trained speech models; custom keywords don't get recognized on this firmware. -->
+<trigger command="SHOW_ME_THE_WEATHER" />

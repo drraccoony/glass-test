@@ -98,6 +98,8 @@ public class MainActivity extends Activity implements NotificationStore.Listener
     private boolean alertMode;
     private boolean pendingWeatherCard;
     private boolean weatherRefreshing;
+    /** The scroller ignores selections made before the activity is on screen. */
+    private boolean resumed;
 
     // Reply flow: an overlay card replaces the scroller while a reply is sent.
     private String actionKey;
@@ -156,11 +158,13 @@ public class MainActivity extends Activity implements NotificationStore.Listener
         super.onResume();
         store.addListener(this);
         if (overlay == null) scroller.activate();
+        resumed = true;
         refresh();
     }
 
     @Override
     protected void onPause() {
+        resumed = false;
         store.removeListener(this);
         scroller.deactivate();
         super.onPause();
@@ -195,19 +199,22 @@ public class MainActivity extends Activity implements NotificationStore.Listener
 
         int target = current == null ? 0 : cards.indexOf(current);
         if (target < 0) target = Math.min(selected, cards.size() - 1); // its card went away
-        if (pendingAlertKey != null) {
+        if (pendingAlertKey != null && resumed) {
             int i = indexOfNote(pendingAlertKey);
             if (i >= 0) {
                 target = i;
                 pendingAlertKey = null;
             }
         }
-        if (pendingWeatherCard && weather != null) {
+        if (pendingWeatherCard && weather != null && resumed) {
             target = 1;
             pendingWeatherCard = false;
         }
         adapter.notifyDataSetChanged();
-        scroller.setSelection(Math.max(0, target));
+        final int selection = Math.max(0, target);
+        scroller.setSelection(selection);
+        // Apply again after layout, in case the scroller wasn't ready yet.
+        scroller.post(() -> scroller.setSelection(selection));
         // The note behind an open reply flow was cleared on the phone.
         if (overlay != null && grace != null && noteFor(actionKey) == null) cancelReply();
     }
