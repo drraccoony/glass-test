@@ -27,6 +27,8 @@ package dev.glassrevival.protocol;
  * glass -> phone   media_chunk  {id, offset, data, last}
  * phone -> glass   media_cancel {id}
  * glass -> phone   media_error  {id, error}
+ * phone -> glass   media_delete {ids}                 permanently deletes from Glass
+ * glass -> phone   media_deleted {ids, failed}
  * glass -> phone   welcome {v, name, battery, charging}
  * glass -> phone   reject  {reason}                  then Glass closes the socket
  * phone -> glass   notify  {key, pkg, app, title, text, when, alert, icon?, canReply?, choices?}
@@ -78,6 +80,8 @@ public final class Protocol {
     public static final String MEDIA_CHUNK = "media_chunk";
     public static final String MEDIA_CANCEL = "media_cancel";
     public static final String MEDIA_ERROR = "media_error";
+    public static final String MEDIA_DELETE = "media_delete";
+    public static final String MEDIA_DELETED = "media_deleted";
     public static final String MEDIA_PREFIX = "media_";
     public static final String WEATHER_REQUEST = "weather_request";
 
@@ -147,6 +151,8 @@ public final class Protocol {
     public static final String F_MIME = "mime";
     public static final String F_URL = "url";
     public static final String F_LAST = "last";
+    public static final String F_IDS = "ids";
+    public static final String F_FAILED = "failed";
     public static final String KIND_PHOTO = "photo";
     public static final String KIND_VIDEO = "video";
     /** Raw bytes per Bluetooth chunk; base64 makes each frame about 64 KB. */

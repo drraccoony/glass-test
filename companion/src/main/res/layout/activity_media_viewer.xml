@@ -42,12 +42,11 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1">
-        <ImageView
+        <dev.glassrevival.companion.ZoomImageView
             android:id="@+id/viewer_photo"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:importantForAccessibility="no"
-            android:scaleType="fitCenter" />
+            android:importantForAccessibility="no" />
         <VideoView
             android:id="@+id/viewer_video"
             android:layout_width="match_parent"
@@ -90,12 +89,24 @@
             style="@style/TextButton"
             android:layout_width="0dp"
             android:layout_weight="1"
-            android:text="Save to phone" />
+            android:text="Save" />
         <Button
             android:id="@+id/viewer_share"
             style="@style/TextButton"
             android:layout_width="0dp"
             android:layout_weight="1"
             android:text="Share" />
+        <Button
+            android:id="@+id/viewer_delete"
+            style="@style/TextButton"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:text="Delete" />
+        <Button
+            android:id="@+id/viewer_info"
+            style="@style/TextButton"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:text="Info" />
     </LinearLayout>
 </LinearLayout>

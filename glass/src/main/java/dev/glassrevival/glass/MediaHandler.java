@@ -57,6 +57,8 @@ final class MediaHandler {
                         list(out, msg.optInt(Protocol.F_OFFSET, 0), msg.optInt(Protocol.F_LIMIT, 500));
                     } else if (Protocol.MEDIA_THUMB.equals(type)) {
                         thumb(out, id);
+                    } else if (Protocol.MEDIA_DELETE.equals(type)) {
+                        delete(out, msg.optJSONArray(Protocol.F_IDS));
                     } else if (Protocol.MEDIA_GET.equals(type)) {
                         get(out, id, msg.optBoolean(Protocol.F_BT, false));
                     }
@@ -89,6 +91,19 @@ final class MediaHandler {
         out.send(new JSONObject().put(Protocol.F_TYPE, Protocol.MEDIA_ITEMS)
                 .put(Protocol.F_OFFSET, offset).put(Protocol.F_TOTAL, all.size())
                 .put(Protocol.F_ITEMS, items));
+    }
+
+    private void delete(Out out, JSONArray ids) throws JSONException {
+        JSONArray deleted = new JSONArray();
+        JSONArray failed = new JSONArray();
+        for (int i = 0; ids != null && i < ids.length(); i++) {
+            String id = ids.optString(i);
+            MediaLibrary.Item it = library.find(id);
+            if (it == null || library.delete(it)) deleted.put(id); else failed.put(id);
+        }
+        Log.i(TAG, "Deleted " + deleted.length() + " items, " + failed.length() + " failed");
+        out.send(new JSONObject().put(Protocol.F_TYPE, Protocol.MEDIA_DELETED)
+                .put(Protocol.F_IDS, deleted).put(Protocol.F_FAILED, failed));
     }
 
     private void thumb(Out out, String id) throws JSONException {

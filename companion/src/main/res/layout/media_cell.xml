@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <dev.glassrevival.companion.SquareFrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
+    android:layout_width="0dp"
     android:layout_height="wrap_content"
+    android:layout_weight="1"
     android:background="@color/card_bg">
     <ImageView
         android:id="@+id/cell_image"
@@ -22,5 +23,21 @@
         android:paddingBottom="2dp"
         android:textColor="#FFFFFF"
         android:textSize="12sp"
+        android:visibility="gone" />
+    <!-- Selection: dimmed image with a check mark -->
+    <View
+        android:id="@+id/cell_dim"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#661A73E8"
+        android:visibility="gone" />
+    <ImageView
+        android:id="@+id/cell_check"
+        android:layout_width="26dp"
+        android:layout_height="26dp"
+        android:layout_gravity="top|start"
+        android:layout_margin="6dp"
+        android:importantForAccessibility="no"
+        android:src="@drawable/ic_check_circle"
         android:visibility="gone" />
 </dev.glassrevival.companion.SquareFrameLayout>

@@ -16,6 +16,7 @@ import android.os.Bundle;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.view.View;
+import android.widget.LinearLayout;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Switch;
@@ -518,35 +519,108 @@ public class MainActivity extends Activity implements LinkManager.Listener {
 
     // ---- Photos -----------------------------------------------------------------------------
 
+    private static final int FILTER_ALL = 0;
+    private static final int FILTER_PHOTOS = 1;
+    private static final int FILTER_VIDEOS = 2;
+
     private MediaClient media;
-    private PhotoAdapter photoAdapter;
+    private GalleryAdapter gallery;
     private TextView photosStatus;
+    private final Button[] filterButtons = new Button[3];
+    private int filter;
+    private boolean hideOverlayCopies;
+    private int columns = 3;
+    private List<MediaClient.Item> shown = new ArrayList<>();
+    private final java.util.LinkedHashSet<String> selected = new java.util.LinkedHashSet<>();
+    private android.view.ActionMode selectionMode;
+
     private final MediaClient.Listener mediaListener = new MediaClient.Listener() {
         @Override
         public void onItems(List<MediaClient.Item> items) {
-            photoAdapter.notifyDataSetChanged();
+            selected.retainAll(idsOf(items));
+            rebuildGallery();
             updatePhotosStatus();
         }
 
         @Override
         public void onThumb(String id) {
-            photoAdapter.notifyDataSetChanged();
+            gallery.notifyDataSetChanged();
+        }
+
+        @Override
+        public void onDeleted(int deleted, int failed) {
+            Toast.makeText(MainActivity.this, failed == 0 ? "Deleted " + deleted + " from Glass"
+                    : "Deleted " + deleted + ", " + failed + " couldn't be deleted", Toast.LENGTH_SHORT).show();
         }
     };
 
+    private static java.util.Set<String> idsOf(List<MediaClient.Item> items) {
+        java.util.Set<String> ids = new java.util.HashSet<>();
+        for (MediaClient.Item it : items) ids.add(it.id);
+        return ids;
+    }
+
     private void setUpPhotos() {
         media = CompanionApp.media(this);
+        android.content.SharedPreferences ui = getPreferences(MODE_PRIVATE);
+        filter = ui.getInt("photo_filter", FILTER_ALL);
+        hideOverlayCopies = ui.getBoolean("photo_hide_overlay", false);
+        columns = ui.getInt("photo_columns", 3);
         photosStatus = findViewById(R.id.photos_status);
-        android.widget.GridView grid = findViewById(R.id.photos_grid);
-        photoAdapter = new PhotoAdapter();
-        grid.setAdapter(photoAdapter);
-        grid.setOnItemClickListener((parent, view, position, id) -> {
-            MediaClient.Item it = media.items().get(position);
-            startActivity(new Intent(this, MediaViewerActivity.class)
-                    .putExtra(MediaViewerActivity.EXTRA_ID, it.id));
+        android.widget.ListView list = findViewById(R.id.photos_list);
+        gallery = new GalleryAdapter();
+        list.setAdapter(gallery);
+        int[] ids = {R.id.filter_all, R.id.filter_photos, R.id.filter_videos};
+        for (int i = 0; i < 3; i++) {
+            final int f = i;
+            filterButtons[i] = findViewById(ids[i]);
+            filterButtons[i].setOnClickListener(v -> {
+                filter = f;
+                getPreferences(MODE_PRIVATE).edit().putInt("photo_filter", f).apply();
+                rebuildGallery();
+            });
+        }
+        Switch hide = findViewById(R.id.filter_hide_overlay);
+        hide.setChecked(hideOverlayCopies);
+        hide.setOnCheckedChangeListener((b, on) -> {
+            hideOverlayCopies = on;
+            getPreferences(MODE_PRIVATE).edit().putBoolean("photo_hide_overlay", on).apply();
+            rebuildGallery();
         });
         findViewById(R.id.photos_refresh).setOnClickListener(v -> loadPhotos());
+        // Pinch the grid to change how many thumbnails fit across.
+        final android.view.ScaleGestureDetector pinch = new android.view.ScaleGestureDetector(this,
+                new android.view.ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                    private float accumulated = 1f;
+
+                    @Override
+                    public boolean onScaleBegin(android.view.ScaleGestureDetector d) {
+                        accumulated = 1f;
+                        return true;
+                    }
+
+                    @Override
+                    public boolean onScale(android.view.ScaleGestureDetector d) {
+                        accumulated *= d.getScaleFactor();
+                        int next = columns;
+                        if (accumulated > 1.25f) next = columns - 1;
+                        if (accumulated < 0.8f) next = columns + 1;
+                        next = Math.max(2, Math.min(5, next));
+                        if (next != columns) {
+                            columns = next;
+                            accumulated = 1f;
+                            getPreferences(MODE_PRIVATE).edit().putInt("photo_columns", columns).apply();
+                            rebuildGallery();
+                        }
+                        return true;
+                    }
+                });
+        list.setOnTouchListener((v, e) -> {
+            pinch.onTouchEvent(e);
+            return pinch.isInProgress();
+        });
         media.addListener(mediaListener);
+        rebuildGallery();
         updatePhotosStatus();
     }
 
@@ -562,7 +636,7 @@ public class MainActivity extends Activity implements LinkManager.Listener {
             photosStatus.setText("Connect to Glass to see its photos and videos");
             return;
         }
-        photosStatus.setText("Loading from Glass\u2026");
+        photosStatus.setText("Loading from Glass…");
         media.refreshList();
     }
 
@@ -574,22 +648,88 @@ public class MainActivity extends Activity implements LinkManager.Listener {
         }
         int photos = 0;
         int videos = 0;
-        for (MediaClient.Item it : media.items()) {
+        for (MediaClient.Item it : shown) {
             if (it.isVideo()) videos++; else photos++;
         }
         photosStatus.setText(photos + (photos == 1 ? " photo, " : " photos, ")
-                + videos + (videos == 1 ? " video" : " videos") + " on Glass");
+                + videos + (videos == 1 ? " video" : " videos"));
     }
 
-    private final class PhotoAdapter extends android.widget.BaseAdapter {
+    /** Applies the filter and regroups by day. */
+    private void rebuildGallery() {
+        List<MediaClient.Item> list = new ArrayList<>();
+        for (MediaClient.Item it : media.items()) {
+            if (filter == FILTER_PHOTOS && it.isVideo()) continue;
+            if (filter == FILTER_VIDEOS && !it.isVideo()) continue;
+            if (hideOverlayCopies && it.name.endsWith("_x.jpg")) continue;
+            list.add(it);
+        }
+        shown = list;
+        for (int i = 0; i < 3; i++) {
+            filterButtons[i].setTextColor(getColor(i == filter ? R.color.accent : R.color.muted_text));
+            filterButtons[i].setTypeface(null, i == filter ? android.graphics.Typeface.BOLD
+                    : android.graphics.Typeface.NORMAL);
+        }
+        gallery.rebuild();
+        updatePhotosStatus();
+    }
+
+    private String dayLabel(long time) {
+        java.util.Calendar day = java.util.Calendar.getInstance();
+        day.setTimeInMillis(time);
+        java.util.Calendar today = java.util.Calendar.getInstance();
+        if (sameDay(day, today)) return "Today";
+        today.add(java.util.Calendar.DAY_OF_YEAR, -1);
+        if (sameDay(day, today)) return "Yesterday";
+        boolean thisYear = day.get(java.util.Calendar.YEAR) == java.util.Calendar.getInstance().get(java.util.Calendar.YEAR);
+        String pattern = android.text.format.DateFormat.getBestDateTimePattern(Locale.getDefault(),
+                thisYear ? "EEEMMMd" : "EEEMMMdyyyy");
+        return android.text.format.DateFormat.format(pattern, time).toString();
+    }
+
+    private static boolean sameDay(java.util.Calendar a, java.util.Calendar b) {
+        return a.get(java.util.Calendar.YEAR) == b.get(java.util.Calendar.YEAR)
+                && a.get(java.util.Calendar.DAY_OF_YEAR) == b.get(java.util.Calendar.DAY_OF_YEAR);
+    }
+
+    /** Rows are either a day heading or a strip of up to {@code columns} thumbnails. */
+    private final class GalleryAdapter extends android.widget.BaseAdapter {
+        private static final int HEADER = 0;
+        private static final int ROW = 1;
+
+        private final List<Object[]> rows = new ArrayList<>(); // {HEADER, label, List<Item>} or {ROW, List<Item>}
+
+        void rebuild() {
+            rows.clear();
+            String currentLabel = null;
+            List<MediaClient.Item> dayItems = null;
+            List<MediaClient.Item> row = null;
+            for (MediaClient.Item it : shown) {
+                String label = dayLabel(it.taken);
+                if (!label.equals(currentLabel)) {
+                    currentLabel = label;
+                    dayItems = new ArrayList<>();
+                    rows.add(new Object[] {HEADER, label, dayItems});
+                    row = null;
+                }
+                dayItems.add(it);
+                if (row == null || row.size() == columns) {
+                    row = new ArrayList<>();
+                    rows.add(new Object[] {ROW, row});
+                }
+                row.add(it);
+            }
+            notifyDataSetChanged();
+        }
+
         @Override
         public int getCount() {
-            return media.items().size();
+            return rows.size();
         }
 
         @Override
         public Object getItem(int position) {
-            return media.items().get(position);
+            return rows.get(position);
         }
 
         @Override
@@ -598,29 +738,286 @@ public class MainActivity extends Activity implements LinkManager.Listener {
         }
 
         @Override
+        public int getViewTypeCount() {
+            return 2;
+        }
+
+        @Override
+        public int getItemViewType(int position) {
+            return (Integer) rows.get(position)[0];
+        }
+
+        @Override
+        public boolean isEnabled(int position) {
+            return false; // cells handle their own taps
+        }
+
+        @Override
+        @SuppressWarnings("unchecked")
         public View getView(int position, View convertView, android.view.ViewGroup parent) {
-            View v = convertView != null ? convertView
-                    : getLayoutInflater().inflate(R.layout.media_cell, parent, false);
-            MediaClient.Item it = media.items().get(position);
-            android.widget.ImageView image = v.findViewById(R.id.cell_image);
-            TextView badge = v.findViewById(R.id.cell_badge);
-            android.graphics.Bitmap b = media.thumb(it.id);
-            image.setImageBitmap(b);
-            if (it.isVideo()) {
-                long s = it.duration / 1000;
-                badge.setText("\u25B6 " + (s / 60) + ":" + String.format(Locale.US, "%02d", s % 60));
-                badge.setVisibility(View.VISIBLE);
-            } else {
-                badge.setVisibility(View.GONE);
+            Object[] r = rows.get(position);
+            if ((Integer) r[0] == HEADER) {
+                return headerView(convertView, parent, (String) r[1], (List<MediaClient.Item>) r[2]);
             }
-            return v;
+            return rowView(convertView, (List<MediaClient.Item>) r[1]);
+        }
+
+        private View headerView(View convertView, android.view.ViewGroup parent, String label,
+                                final List<MediaClient.Item> dayItems) {
+            LinearLayout h = (LinearLayout) convertView;
+            if (h == null) {
+                h = new LinearLayout(MainActivity.this);
+                h.setOrientation(LinearLayout.HORIZONTAL);
+                h.setGravity(android.view.Gravity.CENTER_VERTICAL);
+                h.setPadding(dp(4), dp(14), 0, dp(4));
+                TextView t = new TextView(MainActivity.this);
+                t.setTextSize(15);
+                t.setTypeface(null, android.graphics.Typeface.BOLD);
+                h.addView(t, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+                Button select = new Button(MainActivity.this, null, 0, R.style.TextButton);
+                select.setMinWidth(0);
+                select.setMinHeight(0);
+                select.setPadding(dp(12), dp(4), dp(12), dp(4));
+                h.addView(select);
+            }
+            ((TextView) h.getChildAt(0)).setText(label + "  ·  " + dayItems.size());
+            Button select = (Button) h.getChildAt(1);
+            boolean all = !dayItems.isEmpty() && selected.containsAll(idsOf(dayItems));
+            select.setText(all ? "Clear" : "Select");
+            select.setOnClickListener(v -> {
+                for (MediaClient.Item it : dayItems) {
+                    if (all) selected.remove(it.id); else selected.add(it.id);
+                }
+                selectionChanged();
+            });
+            return h;
+        }
+
+        private View rowView(View convertView, List<MediaClient.Item> items) {
+            LinearLayout row = (LinearLayout) convertView;
+            if (row == null || row.getChildCount() != columns) {
+                row = new LinearLayout(MainActivity.this);
+                row.setOrientation(LinearLayout.HORIZONTAL);
+                for (int i = 0; i < columns; i++) {
+                    View cell = getLayoutInflater().inflate(R.layout.media_cell, row, false);
+                    LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) cell.getLayoutParams();
+                    lp.setMargins(dp(1.5f), dp(1.5f), dp(1.5f), dp(1.5f));
+                    row.addView(cell, lp);
+                }
+            }
+            for (int i = 0; i < columns; i++) {
+                View cell = row.getChildAt(i);
+                if (i >= items.size()) {
+                    cell.setVisibility(View.INVISIBLE);
+                    continue;
+                }
+                cell.setVisibility(View.VISIBLE);
+                bindCell(cell, items.get(i));
+            }
+            return row;
         }
     }
 
-    @Override
-    protected void onSaveInstanceState(Bundle outState) {
-        super.onSaveInstanceState(outState);
-        outState.putInt("tab", currentTab);
+    private void bindCell(View cell, final MediaClient.Item it) {
+        android.widget.ImageView image = cell.findViewById(R.id.cell_image);
+        TextView badge = cell.findViewById(R.id.cell_badge);
+        image.setImageBitmap(media.thumb(it.id));
+        if (it.isVideo()) {
+            long s = it.duration / 1000;
+            badge.setText("▶ " + (s / 60) + ":" + String.format(Locale.US, "%02d", s % 60));
+            badge.setVisibility(View.VISIBLE);
+        } else {
+            badge.setVisibility(View.GONE);
+        }
+        boolean isSelected = selected.contains(it.id);
+        cell.findViewById(R.id.cell_dim).setVisibility(isSelected ? View.VISIBLE : View.GONE);
+        cell.findViewById(R.id.cell_check).setVisibility(isSelected ? View.VISIBLE : View.GONE);
+        cell.setOnClickListener(v -> {
+            if (selectionMode != null) {
+                toggle(it);
+            } else {
+                openViewer(it);
+            }
+        });
+        cell.setOnLongClickListener(v -> {
+            toggle(it);
+            return true;
+        });
+    }
+
+    private void openViewer(MediaClient.Item it) {
+        String[] ids = new String[shown.size()];
+        int index = 0;
+        for (int i = 0; i < shown.size(); i++) {
+            ids[i] = shown.get(i).id;
+            if (shown.get(i).id.equals(it.id)) index = i;
+        }
+        startActivity(new Intent(this, MediaViewerActivity.class)
+                .putExtra(MediaViewerActivity.EXTRA_IDS, ids)
+                .putExtra(MediaViewerActivity.EXTRA_INDEX, index));
+    }
+
+    private void toggle(MediaClient.Item it) {
+        if (!selected.remove(it.id)) selected.add(it.id);
+        selectionChanged();
+    }
+
+    private void selectionChanged() {
+        if (selected.isEmpty()) {
+            if (selectionMode != null) selectionMode.finish();
+        } else if (selectionMode == null) {
+            selectionMode = startActionMode(selectionCallback);
+        }
+        if (selectionMode != null) selectionMode.setTitle(selected.size() + " selected");
+        gallery.notifyDataSetChanged();
+    }
+
+    private static final int ACTION_SAVE = 1;
+    private static final int ACTION_SHARE = 2;
+    private static final int ACTION_DELETE = 3;
+    private static final int ACTION_ALL = 4;
+
+    private final android.view.ActionMode.Callback selectionCallback = new android.view.ActionMode.Callback() {
+        @Override
+        public boolean onCreateActionMode(android.view.ActionMode mode, android.view.Menu menu) {
+            int flags = android.view.MenuItem.SHOW_AS_ACTION_IF_ROOM | android.view.MenuItem.SHOW_AS_ACTION_WITH_TEXT;
+            menu.add(0, ACTION_SAVE, 0, "Save").setShowAsAction(flags);
+            menu.add(0, ACTION_SHARE, 1, "Share").setShowAsAction(flags);
+            menu.add(0, ACTION_DELETE, 2, "Delete").setShowAsAction(flags);
+            menu.add(0, ACTION_ALL, 3, "Select all").setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_NEVER);
+            return true;
+        }
+
+        @Override
+        public boolean onPrepareActionMode(android.view.ActionMode mode, android.view.Menu menu) {
+            return false;
+        }
+
+        @Override
+        public boolean onActionItemClicked(android.view.ActionMode mode, android.view.MenuItem item) {
+            List<MediaClient.Item> chosen = new ArrayList<>();
+            for (MediaClient.Item it : shown) if (selected.contains(it.id)) chosen.add(it);
+            switch (item.getItemId()) {
+                case ACTION_SAVE:
+                    runBulk(chosen, false);
+                    return true;
+                case ACTION_SHARE:
+                    runBulk(chosen, true);
+                    return true;
+                case ACTION_DELETE:
+                    confirmBulkDelete(chosen);
+                    return true;
+                case ACTION_ALL:
+                    for (MediaClient.Item it : shown) selected.add(it.id);
+                    selectionChanged();
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        @Override
+        public void onDestroyActionMode(android.view.ActionMode mode) {
+            selectionMode = null;
+            selected.clear();
+            gallery.notifyDataSetChanged();
+        }
+    };
+
+    private void confirmBulkDelete(final List<MediaClient.Item> chosen) {
+        new AlertDialog.Builder(this)
+                .setTitle("Delete " + chosen.size() + (chosen.size() == 1 ? " item" : " items") + " from Glass?")
+                .setMessage("They're removed from Glass permanently. Copies you saved to the phone are kept.")
+                .setPositiveButton("Delete", (d, w) -> {
+                    List<String> ids = new ArrayList<>();
+                    for (MediaClient.Item it : chosen) ids.add(it.id);
+                    media.deleteOnGlass(ids);
+                    if (selectionMode != null) selectionMode.finish();
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    /** Downloads each item in turn, then saves them all to the gallery or opens the share sheet. */
+    private void runBulk(final List<MediaClient.Item> chosen, final boolean share) {
+        if (chosen.isEmpty()) return;
+        final List<java.io.File> files = new ArrayList<>();
+        final List<MediaClient.Item> done = new ArrayList<>();
+        final int[] failed = {0};
+        final boolean[] cancelled = {false};
+        final android.widget.ProgressBar bar = new android.widget.ProgressBar(this, null, 0,
+                android.R.style.Widget_Material_ProgressBar_Horizontal);
+        bar.setMax(100);
+        LinearLayout box = new LinearLayout(this);
+        box.setPadding(dp(24), dp(8), dp(24), 0);
+        box.addView(bar, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
+        final AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle(share ? "Preparing to share" : "Saving to phone")
+                .setMessage("Starting…")
+                .setView(box)
+                .setCancelable(false)
+                .setNegativeButton(android.R.string.cancel, (d, w) -> {
+                    cancelled[0] = true;
+                    media.cancelDownload();
+                })
+                .show();
+        new Object() {
+            int i = 0;
+
+            void next() {
+                if (cancelled[0]) return;
+                if (i >= chosen.size()) {
+                    finish();
+                    return;
+                }
+                final MediaClient.Item it = chosen.get(i);
+                media.download(it, new MediaClient.DownloadListener() {
+                    @Override
+                    public void onProgress(long d, long total, boolean viaWifi) {
+                        int pct = total > 0 ? (int) (d * 100 / total) : 0;
+                        bar.setProgress((i * 100 + pct) / chosen.size());
+                        dialog.setMessage((i + 1) + " of " + chosen.size()
+                                + (viaWifi ? " over Wi-Fi" : " over Bluetooth"));
+                    }
+
+                    @Override
+                    public void onDone(java.io.File f) {
+                        if (share) {
+                            files.add(f);
+                            done.add(it);
+                        } else if (!MediaSaver.save(MainActivity.this, it, f)) {
+                            failed[0]++;
+                        }
+                        i++;
+                        next();
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        failed[0]++;
+                        i++;
+                        next();
+                    }
+                });
+            }
+
+            void finish() {
+                dialog.dismiss();
+                if (selectionMode != null) selectionMode.finish();
+                if (share) {
+                    if (!files.isEmpty()) startActivity(MediaSaver.shareIntent(done, files));
+                } else {
+                    int saved = chosen.size() - failed[0];
+                    Toast.makeText(MainActivity.this, "Saved " + saved + " to your gallery (GlassLink folder)"
+                            + (failed[0] > 0 ? ", " + failed[0] + " failed" : ""), Toast.LENGTH_LONG).show();
+                }
+            }
+        }.next();
+    }
+
+    private int dp(float v) {
+        return Math.round(v * getResources().getDisplayMetrics().density);
     }
 
     // ---- METAR ----------------------------------------------------------------------------

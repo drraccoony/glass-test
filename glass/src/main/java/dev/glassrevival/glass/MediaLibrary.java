@@ -107,6 +107,19 @@ final class MediaLibrary {
         }
     }
 
+    /** Deletes the file and its media index entry. */
+    boolean delete(Item it) {
+        File f = new File(it.path);
+        boolean gone = !f.exists() || f.delete();
+        if (gone) {
+            android.net.Uri table = Protocol.KIND_VIDEO.equals(it.kind)
+                    ? MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+                    : MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
+            resolver.delete(table, "_id=?", new String[] {Long.toString(it.rowId)});
+        }
+        return gone;
+    }
+
     /** A small JPEG preview, or null. */
     byte[] thumbnail(Item it) {
         Bitmap b;

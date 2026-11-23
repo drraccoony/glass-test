@@ -66,6 +66,10 @@ final class MediaClient implements LinkManager.MessageSink, LinkManager.Listener
         void onItems(List<Item> items);
 
         void onThumb(String id);
+
+        /** After a delete finished on Glass. */
+        default void onDeleted(int deleted, int failed) {
+        }
     }
 
     /** One download's progress, on the main thread. */
@@ -125,6 +129,16 @@ final class MediaClient implements LinkManager.MessageSink, LinkManager.Listener
     Item find(String id) {
         for (Item it : items) if (it.id.equals(id)) return it;
         return null;
+    }
+
+    /** Permanently deletes these items from Glass. Listeners get onItems when it's done. */
+    void deleteOnGlass(List<String> ids) {
+        try {
+            link.send(new JSONObject().put(Protocol.F_TYPE, Protocol.MEDIA_DELETE)
+                    .put(Protocol.F_IDS, new JSONArray(ids)));
+        } catch (JSONException ignored) {
+            // cannot happen
+        }
     }
 
     void refreshList() {
@@ -187,6 +201,8 @@ final class MediaClient implements LinkManager.MessageSink, LinkManager.Listener
                 onFile(msg);
             } else if (Protocol.MEDIA_CHUNK.equals(type)) {
                 onChunk(msg);
+            } else if (Protocol.MEDIA_DELETED.equals(type)) {
+                onDeleted(msg);
             } else if (Protocol.MEDIA_ERROR.equals(type)) {
                 String id = msg.optString(Protocol.F_ID);
                 pendingThumbs.remove(id);
@@ -216,6 +232,28 @@ final class MediaClient implements LinkManager.MessageSink, LinkManager.Listener
             items = result;
             listLoaded = true;
             for (Listener l : listeners) l.onItems(result);
+        });
+    }
+
+    private void onDeleted(JSONObject msg) {
+        JSONArray ids = msg.optJSONArray(Protocol.F_IDS);
+        final Set<String> gone = new HashSet<>();
+        for (int i = 0; ids != null && i < ids.length(); i++) gone.add(ids.optString(i));
+        final int failed = msg.optJSONArray(Protocol.F_FAILED) == null ? 0
+                : msg.optJSONArray(Protocol.F_FAILED).length();
+        main.post(() -> {
+            List<Item> keep = new ArrayList<>();
+            for (Item it : items) {
+                if (gone.contains(it.id)) {
+                    cacheFile(it).delete();
+                    thumbs.remove(it.id);
+                } else {
+                    keep.add(it);
+                }
+            }
+            items = Collections.unmodifiableList(keep);
+            for (Listener l : listeners) l.onItems(items);
+            for (Listener l : listeners) l.onDeleted(gone.size(), failed);
         });
     }
 
