@@ -122,6 +122,8 @@ public class LinkService extends Service {
     }
 
     private final NotificationStore store = NotificationStore.get();
+    private MediaServer mediaServer;
+    private MediaHandler media;
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService sender = Executors.newSingleThreadExecutor();
 
@@ -152,6 +154,9 @@ public class LinkService extends Service {
         Metar savedMetar = Metar.parse(getSharedPreferences("glasslink", MODE_PRIVATE)
                 .getString(METAR_PREF, null));
         if (savedMetar != null) store.setMetar(savedMetar);
+        MediaLibrary library = new MediaLibrary(getContentResolver());
+        mediaServer = new MediaServer(this, library);
+        media = new MediaHandler(library, mediaServer);
         running = true;
         acceptThread = new Thread(this::acceptLoop, "GlassLink-accept");
         acceptThread.start();
@@ -173,6 +178,8 @@ public class LinkService extends Service {
         }
         acceptThread.interrupt();
         unregisterReceiver(batteryReceiver);
+        media.shutdown();
+        mediaServer.stop();
         sender.shutdownNow();
         super.onDestroy();
     }
@@ -254,7 +261,7 @@ public class LinkService extends Service {
                 : NotificationStore.LinkState.BLUETOOTH_OFF, null);
     }
 
-    private final class Session extends Thread {
+    private final class Session extends Thread implements MediaHandler.Out {
         private final BluetoothSocket socket;
         private OutputStream out;
         volatile boolean authed;
@@ -366,6 +373,8 @@ public class LinkService extends Service {
                 if (alert) alertUser(note);
             } else if (Protocol.REMOVE.equals(type)) {
                 store.remove(msg.getString(Protocol.F_KEY));
+            } else if (type.startsWith(Protocol.MEDIA_PREFIX)) {
+                media.handle(this, msg);
             } else if (Protocol.SETTINGS.equals(type)) {
                 getSharedPreferences("glasslink", MODE_PRIVATE).edit()
                         .putBoolean(PREF_WAKE, msg.optBoolean(Protocol.F_WAKE, true))
@@ -402,7 +411,14 @@ public class LinkService extends Service {
             // Unknown types are ignored so newer phones can talk to older Glass builds.
         }
 
-        void send(JSONObject msg) {
+        @Override
+        public boolean sendNow(JSONObject msg) {
+            if (!authed) return false;
+            return writeNow(msg.toString());
+        }
+
+        @Override
+        public void send(JSONObject msg) {
             final String payload = msg.toString();
             try {
                 sender.execute(() -> writeNow(payload));
@@ -411,13 +427,15 @@ public class LinkService extends Service {
             }
         }
 
-        private synchronized void writeNow(String payload) {
-            if (out == null) return;
+        private synchronized boolean writeNow(String payload) {
+            if (out == null) return false;
             try {
                 FrameIO.write(out, payload);
+                return true;
             } catch (IOException e) {
                 Log.i(TAG, "Write failed: " + e);
                 close();
+                return false;
             }
         }
 

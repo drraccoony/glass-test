@@ -5,6 +5,10 @@
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Let the phone browse and download photos and videos taken on Glass. -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <!-- Follow the phone's time zone (a normal permission on Glass's Android 4.4). -->
     <uses-permission
         android:name="android.permission.SET_TIME_ZONE"

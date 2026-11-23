@@ -14,6 +14,19 @@ package dev.glassrevival.protocol;
  *                            an empty list removes the METAR cards
  * glass -> phone   metar_request                     user asked for fresh METARs
  * phone -> glass   settings {wake, sound, alertSeconds}  how Glass should alert
+ *
+ * Photos and videos on Glass (ids are "p123" for photos, "v45" for videos):
+ * phone -> glass   media_list   {offset, limit}
+ * glass -> phone   media_items  {offset, total, items: [{id, kind, name, taken, size, w, h, duration}]}
+ * phone -> glass   media_thumb  {id}
+ * glass -> phone   media_thumb_data {id, data}         base64 JPEG, about 320 px
+ * phone -> glass   media_get    {id, bt}               bt=true forces Bluetooth transfer
+ * glass -> phone   media_file   {id, name, size, mime, url?}
+ *                    With a url, the phone downloads over Wi-Fi (asking again with bt=true
+ *                    if that fails). Without one, media_chunk frames follow.
+ * glass -> phone   media_chunk  {id, offset, data, last}
+ * phone -> glass   media_cancel {id}
+ * glass -> phone   media_error  {id, error}
  * glass -> phone   welcome {v, name, battery, charging}
  * glass -> phone   reject  {reason}                  then Glass closes the socket
  * phone -> glass   notify  {key, pkg, app, title, text, when, alert, icon?, canReply?, choices?}
@@ -56,6 +69,16 @@ public final class Protocol {
     public static final String METAR = "metar";
     public static final String METAR_REQUEST = "metar_request";
     public static final String SETTINGS = "settings";
+    public static final String MEDIA_LIST = "media_list";
+    public static final String MEDIA_ITEMS = "media_items";
+    public static final String MEDIA_THUMB = "media_thumb";
+    public static final String MEDIA_THUMB_DATA = "media_thumb_data";
+    public static final String MEDIA_GET = "media_get";
+    public static final String MEDIA_FILE = "media_file";
+    public static final String MEDIA_CHUNK = "media_chunk";
+    public static final String MEDIA_CANCEL = "media_cancel";
+    public static final String MEDIA_ERROR = "media_error";
+    public static final String MEDIA_PREFIX = "media_";
     public static final String WEATHER_REQUEST = "weather_request";
 
     // Field names
@@ -107,6 +130,27 @@ public final class Protocol {
     public static final String F_WAKE = "wake";
     public static final String F_SOUND = "sound";
     public static final String F_ALERT_SECONDS = "alertSeconds";
+
+    // Media fields
+    public static final String F_OFFSET = "offset";
+    public static final String F_LIMIT = "limit";
+    public static final String F_TOTAL = "total";
+    public static final String F_ITEMS = "items";
+    public static final String F_KIND = "kind";
+    public static final String F_TAKEN = "taken";
+    public static final String F_SIZE = "size";
+    public static final String F_WIDTH = "w";
+    public static final String F_HEIGHT = "h";
+    public static final String F_DURATION = "duration";
+    public static final String F_DATA = "data";
+    public static final String F_BT = "bt";
+    public static final String F_MIME = "mime";
+    public static final String F_URL = "url";
+    public static final String F_LAST = "last";
+    public static final String KIND_PHOTO = "photo";
+    public static final String KIND_VIDEO = "video";
+    /** Raw bytes per Bluetooth chunk; base64 makes each frame about 64 KB. */
+    public static final int MEDIA_CHUNK_BYTES = 48 * 1024;
 
     // METAR fields
     public static final String F_STATIONS = "stations";

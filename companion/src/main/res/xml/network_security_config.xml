@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Glass serves photos over plain HTTP on the local network (protected by a one-time
+     token sent over Bluetooth). Everything else the app fetches uses HTTPS. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

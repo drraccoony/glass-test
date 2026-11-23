@@ -68,6 +68,17 @@ final class LinkManager {
 
     private final CopyOnWriteArrayList<GlassHook> hooks = new CopyOnWriteArrayList<>();
 
+    /** Receives media_* replies from Glass. Called on the link's reader thread. */
+    interface MessageSink {
+        void onMessage(JSONObject msg);
+    }
+
+    private final CopyOnWriteArrayList<MessageSink> sinks = new CopyOnWriteArrayList<>();
+
+    void addSink(MessageSink sink) {
+        sinks.add(sink);
+    }
+
     private final Context context;
     private final Prefs prefs;
     private final CopyOnWriteArrayList<Listener> listeners = new CopyOnWriteArrayList<>();
@@ -297,6 +308,10 @@ final class LinkManager {
 
     private void handle(JSONObject msg) {
         String type = msg.optString(Protocol.F_TYPE);
+        if (type.startsWith(Protocol.MEDIA_PREFIX)) {
+            for (MessageSink s : sinks) s.onMessage(msg);
+            return;
+        }
         if (Protocol.DISMISS.equals(type)) {
             Peer p = peer;
             String key = msg.optString(Protocol.F_KEY, null);

@@ -9,6 +9,7 @@ public class CompanionApp extends Application {
     private WeatherProvider weather;
     private MetarProvider metar;
     private GlassSettings glassSettings;
+    private MediaClient media;
 
     @Override
     public void onCreate() {
@@ -21,6 +22,11 @@ public class CompanionApp extends Application {
         link.addHook(metar);
         glassSettings = new GlassSettings(prefs, link);
         link.addHook(glassSettings);
+        media = new MediaClient(this, link);
+    }
+
+    static MediaClient media(Context context) {
+        return ((CompanionApp) context.getApplicationContext()).media;
     }
 
     static GlassSettings glassSettings(Context context) {

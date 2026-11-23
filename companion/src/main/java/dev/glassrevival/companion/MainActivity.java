@@ -50,11 +50,12 @@ public class MainActivity extends Activity implements LinkManager.Listener {
     private Button glassEditButton;
     private boolean glassEditing;
 
-    private static final String[] TAB_TITLES = {"Glass", "Notifications", "Weather", "Airports"};
-    private final View[] pages = new View[4];
-    private final View[] tabs = new View[4];
-    private final android.widget.ImageView[] tabIcons = new android.widget.ImageView[4];
-    private final TextView[] tabLabels = new TextView[4];
+    private static final String[] TAB_TITLES = {"Glass", "Notifications", "Photos", "Weather", "Airports"};
+    private static final int TAB_PHOTOS = 2;
+    private final View[] pages = new View[5];
+    private final View[] tabs = new View[5];
+    private final android.widget.ImageView[] tabIcons = new android.widget.ImageView[5];
+    private final TextView[] tabLabels = new TextView[5];
     private TextView pageTitle;
     private View headerDot;
     private TextView headerState;
@@ -89,6 +90,7 @@ public class MainActivity extends Activity implements LinkManager.Listener {
         statusTitle = findViewById(R.id.status_title);
         statusDetail = findViewById(R.id.status_detail);
         statusDot = findViewById(R.id.status_dot);
+        setUpPhotos();
         setUpTabs(savedInstanceState);
         permissionsCard = findViewById(R.id.permissions_card);
         notifAccessRow = findViewById(R.id.notif_access_row);
@@ -185,7 +187,22 @@ public class MainActivity extends Activity implements LinkManager.Listener {
 
     @Override
     public void onLinkChanged() {
-        runOnUiThread(this::refresh);
+        runOnUiThread(() -> {
+            refresh();
+            // Load the gallery once the link comes up while the Photos tab is open.
+            boolean connected = link.isConnected();
+            if (connected && !photosRequested && currentTab == TAB_PHOTOS && !media.listLoaded()) {
+                loadPhotos();
+            }
+            if (!connected) photosRequested = false;
+            updatePhotosStatus();
+        });
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (media != null) media.removeListener(mediaListener);
+        super.onDestroy();
     }
 
     private void refresh() {
@@ -460,14 +477,16 @@ public class MainActivity extends Activity implements LinkManager.Listener {
         pageTitle = findViewById(R.id.page_title);
         headerDot = findViewById(R.id.header_dot);
         headerState = findViewById(R.id.header_state);
-        int[] pageIds = {R.id.page_glass, R.id.page_notifications, R.id.page_weather, R.id.page_airports};
+        int[] pageIds = {R.id.page_glass, R.id.page_notifications, R.id.page_photos, R.id.page_weather,
+            R.id.page_airports};
         int[][] tabIds = {
             {R.id.tab_glass, R.id.tab_glass_icon, R.id.tab_glass_label},
             {R.id.tab_notifications, R.id.tab_notifications_icon, R.id.tab_notifications_label},
+            {R.id.tab_photos, R.id.tab_photos_icon, R.id.tab_photos_label},
             {R.id.tab_weather, R.id.tab_weather_icon, R.id.tab_weather_label},
             {R.id.tab_airports, R.id.tab_airports_icon, R.id.tab_airports_label},
         };
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 5; i++) {
             final int index = i;
             pages[i] = findViewById(pageIds[i]);
             tabs[i] = findViewById(tabIds[i][0]);
@@ -483,8 +502,8 @@ public class MainActivity extends Activity implements LinkManager.Listener {
     }
 
     private void selectTab(int index) {
-        currentTab = Math.max(0, Math.min(3, index));
-        for (int i = 0; i < 4; i++) {
+        currentTab = Math.max(0, Math.min(4, index));
+        for (int i = 0; i < 5; i++) {
             boolean on = i == currentTab;
             pages[i].setVisibility(on ? View.VISIBLE : View.GONE);
             int color = getColor(on ? R.color.accent : R.color.muted_text);
@@ -494,6 +513,108 @@ public class MainActivity extends Activity implements LinkManager.Listener {
         }
         pageTitle.setText(currentTab == 0 ? getString(R.string.app_name) : TAB_TITLES[currentTab]);
         getPreferences(MODE_PRIVATE).edit().putInt("tab", currentTab).apply();
+        if (currentTab == TAB_PHOTOS) onPhotosShown();
+    }
+
+    // ---- Photos -----------------------------------------------------------------------------
+
+    private MediaClient media;
+    private PhotoAdapter photoAdapter;
+    private TextView photosStatus;
+    private final MediaClient.Listener mediaListener = new MediaClient.Listener() {
+        @Override
+        public void onItems(List<MediaClient.Item> items) {
+            photoAdapter.notifyDataSetChanged();
+            updatePhotosStatus();
+        }
+
+        @Override
+        public void onThumb(String id) {
+            photoAdapter.notifyDataSetChanged();
+        }
+    };
+
+    private void setUpPhotos() {
+        media = CompanionApp.media(this);
+        photosStatus = findViewById(R.id.photos_status);
+        android.widget.GridView grid = findViewById(R.id.photos_grid);
+        photoAdapter = new PhotoAdapter();
+        grid.setAdapter(photoAdapter);
+        grid.setOnItemClickListener((parent, view, position, id) -> {
+            MediaClient.Item it = media.items().get(position);
+            startActivity(new Intent(this, MediaViewerActivity.class)
+                    .putExtra(MediaViewerActivity.EXTRA_ID, it.id));
+        });
+        findViewById(R.id.photos_refresh).setOnClickListener(v -> loadPhotos());
+        media.addListener(mediaListener);
+        updatePhotosStatus();
+    }
+
+    private void onPhotosShown() {
+        if (media != null && !media.listLoaded()) loadPhotos();
+    }
+
+    private boolean photosRequested;
+
+    private void loadPhotos() {
+        photosRequested = true;
+        if (!link.isConnected()) {
+            photosStatus.setText("Connect to Glass to see its photos and videos");
+            return;
+        }
+        photosStatus.setText("Loading from Glass\u2026");
+        media.refreshList();
+    }
+
+    private void updatePhotosStatus() {
+        if (media == null) return;
+        if (!media.listLoaded()) {
+            photosStatus.setText(link.isConnected() ? "" : "Connect to Glass to see its photos and videos");
+            return;
+        }
+        int photos = 0;
+        int videos = 0;
+        for (MediaClient.Item it : media.items()) {
+            if (it.isVideo()) videos++; else photos++;
+        }
+        photosStatus.setText(photos + (photos == 1 ? " photo, " : " photos, ")
+                + videos + (videos == 1 ? " video" : " videos") + " on Glass");
+    }
+
+    private final class PhotoAdapter extends android.widget.BaseAdapter {
+        @Override
+        public int getCount() {
+            return media.items().size();
+        }
+
+        @Override
+        public Object getItem(int position) {
+            return media.items().get(position);
+        }
+
+        @Override
+        public long getItemId(int position) {
+            return position;
+        }
+
+        @Override
+        public View getView(int position, View convertView, android.view.ViewGroup parent) {
+            View v = convertView != null ? convertView
+                    : getLayoutInflater().inflate(R.layout.media_cell, parent, false);
+            MediaClient.Item it = media.items().get(position);
+            android.widget.ImageView image = v.findViewById(R.id.cell_image);
+            TextView badge = v.findViewById(R.id.cell_badge);
+            android.graphics.Bitmap b = media.thumb(it.id);
+            image.setImageBitmap(b);
+            if (it.isVideo()) {
+                long s = it.duration / 1000;
+                badge.setText("\u25B6 " + (s / 60) + ":" + String.format(Locale.US, "%02d", s % 60));
+                badge.setVisibility(View.VISIBLE);
+            } else {
+                badge.setVisibility(View.GONE);
+            }
+            return v;
+        }
     }
 
     @Override
