@@ -42,7 +42,6 @@ import java.util.List;
 public class MainActivity extends Activity implements NotificationStore.Listener {
 
     static final String EXTRA_ALERT_KEY = "alert_key";
-    private static final long ALERT_TIMEOUT_MS = 10000;
     private static final long REPLY_TIMEOUT_MS = 15000;
     private static final long RESULT_SHOW_MS = 1500;
     private static final long WEATHER_STALE_MS = 30 * 60 * 1000L;
@@ -160,7 +159,7 @@ public class MainActivity extends Activity implements NotificationStore.Listener
         if (overlay != null) key = null;
         alertMode = key != null;
         pendingAlertKey = key;
-        if (alertMode) handler.postDelayed(alertTimeout, ALERT_TIMEOUT_MS);
+        if (alertMode) handler.postDelayed(alertTimeout, LinkService.alertTimeoutMs(this));
         refresh();
     }
 

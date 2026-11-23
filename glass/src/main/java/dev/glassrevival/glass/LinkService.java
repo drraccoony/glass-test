@@ -111,6 +111,15 @@ public class LinkService extends Service {
 
     private static final String WEATHER_PREF = "last_weather";
     private static final String METAR_PREF = "last_metar";
+    static final String PREF_WAKE = "alert_wake";
+    static final String PREF_SOUND = "alert_sound";
+    static final String PREF_ALERT_SECONDS = "alert_seconds";
+
+    /** How long an alert card stays up before closing itself. */
+    static long alertTimeoutMs(Context context) {
+        int seconds = context.getSharedPreferences("glasslink", MODE_PRIVATE).getInt(PREF_ALERT_SECONDS, 10);
+        return Math.max(3, Math.min(120, seconds)) * 1000L;
+    }
 
     private final NotificationStore store = NotificationStore.get();
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -357,6 +366,13 @@ public class LinkService extends Service {
                 if (alert) alertUser(note);
             } else if (Protocol.REMOVE.equals(type)) {
                 store.remove(msg.getString(Protocol.F_KEY));
+            } else if (Protocol.SETTINGS.equals(type)) {
+                getSharedPreferences("glasslink", MODE_PRIVATE).edit()
+                        .putBoolean(PREF_WAKE, msg.optBoolean(Protocol.F_WAKE, true))
+                        .putBoolean(PREF_SOUND, msg.optBoolean(Protocol.F_SOUND, true))
+                        .putInt(PREF_ALERT_SECONDS, msg.optInt(Protocol.F_ALERT_SECONDS, 10))
+                        .apply();
+                Log.i(TAG, "Alert settings updated: " + msg);
             } else if (Protocol.METAR.equals(type)) {
                 String json = msg.toString();
                 Metar m = Metar.parse(json);
@@ -414,13 +430,17 @@ public class LinkService extends Service {
 
     private void alertUser(final NotificationStore.Note note) {
         main.post(() -> {
+            android.content.SharedPreferences prefs = getSharedPreferences("glasslink", MODE_PRIVATE);
+            boolean wake = prefs.getBoolean(PREF_WAKE, true);
+            boolean sound = prefs.getBoolean(PREF_SOUND, true);
+            // The same chime Glass plays for its own notifications.
+            if (sound) playGlassSound(Sounds.NOTIFICATION);
+            if (!wake) return; // just add it to the card list
             PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
             @SuppressWarnings("deprecation")
-            PowerManager.WakeLock wake = pm.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK
+            PowerManager.WakeLock wakeLock = pm.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK
                     | PowerManager.ACQUIRE_CAUSES_WAKEUP | PowerManager.ON_AFTER_RELEASE, "GlassLink:alert");
-            wake.acquire(5000);
-            // The same chime Glass plays for its own notifications.
-            playGlassSound(Sounds.NOTIFICATION);
+            wakeLock.acquire(5000);
             Intent show = new Intent(this, MainActivity.class)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     .putExtra(MainActivity.EXTRA_ALERT_KEY, note.key);

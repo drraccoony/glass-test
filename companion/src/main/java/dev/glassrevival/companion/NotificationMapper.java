@@ -122,9 +122,11 @@ final class NotificationMapper {
                         && importance <= NotificationManager.IMPORTANCE_MIN) {
                     return null;
                 }
-                // Quiet channels and Do Not Disturb still show on Glass, just without the chime.
-                mayAlert = importance >= NotificationManager.IMPORTANCE_DEFAULT
-                        && ranking.matchesInterruptionFilter();
+                boolean silent = importance != NotificationManager.IMPORTANCE_UNSPECIFIED
+                        && importance < NotificationManager.IMPORTANCE_DEFAULT;
+                if (silent && !prefs.includeSilent()) return null;
+                // Quiet channels (and Do Not Disturb, if followed) still show on Glass, without an alert.
+                mayAlert = !silent && (!prefs.followDnd() || ranking.matchesInterruptionFilter());
             }
         }
 
@@ -149,7 +151,8 @@ final class NotificationMapper {
         Long replied = repliedAt.get(key);
         boolean echoOfOurReply = replied != null
                 && System.currentTimeMillis() - replied < REPLY_ECHO_MS;
-        boolean alert = !snapshot && mayAlert && !echoOfOurReply && !(previous != null && alertOnce);
+        boolean alert = !snapshot && mayAlert && !echoOfOurReply && !(previous != null && alertOnce)
+                && !(prefs.onlyWhenLocked() && phoneInUse());
 
         try {
             JSONObject msg = new JSONObject();
@@ -158,7 +161,8 @@ final class NotificationMapper {
             msg.put(Protocol.F_PACKAGE, pkg);
             msg.put(Protocol.F_APP, labelFor(pkg, extras));
             msg.put(Protocol.F_TITLE, title);
-            msg.put(Protocol.F_TEXT, text);
+            // With "show message text" off, the body never leaves the phone.
+            msg.put(Protocol.F_TEXT, prefs.showText() ? text : "");
             msg.put(Protocol.F_WHEN, sbn.getPostTime());
             msg.put(Protocol.F_ALERT, alert);
             String icon = iconFor(pkg);
@@ -173,6 +177,15 @@ final class NotificationMapper {
         } catch (JSONException e) {
             return null;
         }
+    }
+
+    /** True when the phone is unlocked and its screen is on, i.e. you're looking at it. */
+    private boolean phoneInUse() {
+        android.app.KeyguardManager km = context.getSystemService(android.app.KeyguardManager.class);
+        android.os.PowerManager pm = context.getSystemService(android.os.PowerManager.class);
+        boolean locked = km != null && km.isKeyguardLocked();
+        boolean screenOn = pm == null || pm.isInteractive();
+        return screenOn && !locked;
     }
 
     /** @return true if this key had been sent to Glass, so Glass should be told it's gone */

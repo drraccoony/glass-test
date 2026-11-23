@@ -25,6 +25,13 @@ final class Prefs {
     private static final String WEATHER_JSON = "weather_json";
     private static final String WEATHER_AT = "weather_at";
     private static final String WEATHER_STATUS = "weather_status";
+    private static final String WAKE = "alert_wake";
+    private static final String SOUND = "alert_sound";
+    private static final String ALERT_SECONDS = "alert_seconds";
+    private static final String ONLY_LOCKED = "alert_only_locked";
+    private static final String FOLLOW_DND = "follow_dnd";
+    private static final String SHOW_TEXT = "show_text";
+    private static final String INCLUDE_SILENT = "include_silent";
     private static final String METAR_ON = "metar_enabled";
     private static final String METAR_IDS = "metar_airports";
     private static final String METAR_JSON = "metar_json";
@@ -171,6 +178,64 @@ final class Prefs {
 
     void setWeatherStatus(String status) {
         sp.edit().putString(WEATHER_STATUS, status).apply();
+    }
+
+    // ---- Notification options ----
+
+    boolean wakeGlass() {
+        return sp.getBoolean(WAKE, true);
+    }
+
+    void setWakeGlass(boolean on) {
+        sp.edit().putBoolean(WAKE, on).apply();
+    }
+
+    boolean playSound() {
+        return sp.getBoolean(SOUND, true);
+    }
+
+    void setPlaySound(boolean on) {
+        sp.edit().putBoolean(SOUND, on).apply();
+    }
+
+    int alertSeconds() {
+        return sp.getInt(ALERT_SECONDS, 10);
+    }
+
+    void setAlertSeconds(int seconds) {
+        sp.edit().putInt(ALERT_SECONDS, seconds).apply();
+    }
+
+    boolean onlyWhenLocked() {
+        return sp.getBoolean(ONLY_LOCKED, false);
+    }
+
+    void setOnlyWhenLocked(boolean on) {
+        sp.edit().putBoolean(ONLY_LOCKED, on).apply();
+    }
+
+    boolean followDnd() {
+        return sp.getBoolean(FOLLOW_DND, true);
+    }
+
+    void setFollowDnd(boolean on) {
+        sp.edit().putBoolean(FOLLOW_DND, on).apply();
+    }
+
+    boolean showText() {
+        return sp.getBoolean(SHOW_TEXT, true);
+    }
+
+    void setShowText(boolean on) {
+        sp.edit().putBoolean(SHOW_TEXT, on).apply();
+    }
+
+    boolean includeSilent() {
+        return sp.getBoolean(INCLUDE_SILENT, true);
+    }
+
+    void setIncludeSilent(boolean on) {
+        sp.edit().putBoolean(INCLUDE_SILENT, on).apply();
     }
 
     // ---- METAR ----

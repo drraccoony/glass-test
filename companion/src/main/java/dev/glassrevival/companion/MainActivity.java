@@ -121,6 +121,7 @@ public class MainActivity extends Activity implements LinkManager.Listener {
         findViewById(R.id.test).setOnClickListener(v -> sendTest());
         findViewById(R.id.muted).setOnClickListener(v -> editMutedApps());
         findViewById(R.id.quick_replies).setOnClickListener(v -> editQuickReplies());
+        setUpNotificationOptions();
         enabled.setOnCheckedChangeListener((button, on) -> setForwarding(on));
 
         weather = CompanionApp.weather(this);
@@ -395,6 +396,62 @@ public class MainActivity extends Activity implements LinkManager.Listener {
                         prefs.setQuickRepliesText(Prefs.DEFAULT_QUICK_REPLIES))
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
+    }
+
+    // ---- Notification options ---------------------------------------------------------------
+
+    private static final int[] ALERT_SECONDS = {5, 10, 20, 30};
+    private Button alertSecondsButton;
+
+    private void setUpNotificationOptions() {
+        GlassSettings glass = CompanionApp.glassSettings(this);
+        bindSwitch(R.id.opt_wake, prefs.wakeGlass(), on -> {
+            prefs.setWakeGlass(on);
+            glass.push();
+        });
+        bindSwitch(R.id.opt_sound, prefs.playSound(), on -> {
+            prefs.setPlaySound(on);
+            glass.push();
+        });
+        bindSwitch(R.id.opt_only_locked, prefs.onlyWhenLocked(), prefs::setOnlyWhenLocked);
+        bindSwitch(R.id.opt_follow_dnd, prefs.followDnd(), prefs::setFollowDnd);
+        bindSwitch(R.id.opt_show_text, prefs.showText(), on -> {
+            prefs.setShowText(on);
+            link.reconnectNow(); // resend what's on Glass with the new setting
+        });
+        bindSwitch(R.id.opt_include_silent, prefs.includeSilent(), on -> {
+            prefs.setIncludeSilent(on);
+            link.reconnectNow();
+        });
+        alertSecondsButton = findViewById(R.id.opt_alert_seconds);
+        alertSecondsButton.setText(prefs.alertSeconds() + " seconds");
+        alertSecondsButton.setOnClickListener(v -> {
+            String[] labels = new String[ALERT_SECONDS.length];
+            int checked = 1;
+            for (int i = 0; i < ALERT_SECONDS.length; i++) {
+                labels[i] = ALERT_SECONDS[i] + " seconds";
+                if (ALERT_SECONDS[i] == prefs.alertSeconds()) checked = i;
+            }
+            new AlertDialog.Builder(this)
+                    .setTitle("Keep alerts on screen")
+                    .setSingleChoiceItems(labels, checked, (d, which) -> {
+                        prefs.setAlertSeconds(ALERT_SECONDS[which]);
+                        alertSecondsButton.setText(labels[which]);
+                        glass.push();
+                        d.dismiss();
+                    })
+                    .show();
+        });
+    }
+
+    private interface OnToggle {
+        void set(boolean on);
+    }
+
+    private void bindSwitch(int id, boolean value, OnToggle onToggle) {
+        Switch sw = findViewById(id);
+        sw.setChecked(value);
+        sw.setOnCheckedChangeListener((b, on) -> onToggle.set(on));
     }
 
     // ---- Tabs -----------------------------------------------------------------------------

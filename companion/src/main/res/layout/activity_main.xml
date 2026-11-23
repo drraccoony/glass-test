@@ -250,11 +250,61 @@
                 </LinearLayout>
             </LinearLayout>
 
+            <TextView style="@style/Section" android:text="Alerts" />
+            <LinearLayout style="@style/Card">
+                <Switch
+                    android:id="@+id/opt_wake"
+                    style="@style/SwitchRow"
+                    android:text="Wake Glass for new notifications" />
+                <View style="@style/Divider" />
+                <Switch
+                    android:id="@+id/opt_sound"
+                    style="@style/SwitchRow"
+                    android:text="Play sound" />
+                <View style="@style/Divider" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:minHeight="52dp"
+                    android:orientation="horizontal">
+                    <TextView
+                        style="@style/RowLabel"
+                        android:text="Keep alerts on screen" />
+                    <Button
+                        android:id="@+id/opt_alert_seconds"
+                        style="@style/TextButton" />
+                </LinearLayout>
+                <View style="@style/Divider" />
+                <Switch
+                    android:id="@+id/opt_only_locked"
+                    style="@style/SwitchRow"
+                    android:text="Only alert when phone is locked" />
+                <View style="@style/Divider" />
+                <Switch
+                    android:id="@+id/opt_follow_dnd"
+                    style="@style/SwitchRow"
+                    android:text="Follow Do Not Disturb" />
+            </LinearLayout>
+
+            <TextView style="@style/Section" android:text="Content" />
+            <LinearLayout style="@style/Card">
+                <Switch
+                    android:id="@+id/opt_show_text"
+                    style="@style/SwitchRow"
+                    android:text="Show message text on Glass" />
+                <View style="@style/Divider" />
+                <Switch
+                    android:id="@+id/opt_include_silent"
+                    style="@style/SwitchRow"
+                    android:text="Include silent notifications" />
+            </LinearLayout>
+
             <TextView
                 style="@style/Hint"
                 android:layout_marginStart="4dp"
                 android:layout_marginTop="20dp"
-                android:text="Ongoing notifications (music, downloads, navigation) and anything an app marks as phone-only are not sent. Dismissing a card on Glass clears it on the phone too. Messages from apps with a reply button can be answered from Glass." />
+                android:text="With message text off, Glass shows only the app and sender; the message stays on your phone and you can still reply. Ongoing notifications (music, downloads, navigation) and anything an app marks as phone-only are never sent." />
             </LinearLayout>
         </ScrollView>
         <ScrollView

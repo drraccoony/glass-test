@@ -13,6 +13,7 @@ package dev.glassrevival.protocol;
  * phone -> glass   metar   {updated, stations: [{id, name, raw, observed, cat}]}
  *                            an empty list removes the METAR cards
  * glass -> phone   metar_request                     user asked for fresh METARs
+ * phone -> glass   settings {wake, sound, alertSeconds}  how Glass should alert
  * glass -> phone   welcome {v, name, battery, charging}
  * glass -> phone   reject  {reason}                  then Glass closes the socket
  * phone -> glass   notify  {key, pkg, app, title, text, when, alert, icon?, canReply?, choices?}
@@ -54,6 +55,7 @@ public final class Protocol {
     public static final String CLOCK = "clock";
     public static final String METAR = "metar";
     public static final String METAR_REQUEST = "metar_request";
+    public static final String SETTINGS = "settings";
     public static final String WEATHER_REQUEST = "weather_request";
 
     // Field names
@@ -100,6 +102,11 @@ public final class Protocol {
     public static final String SKY_RAIN = "rain";
     public static final String SKY_SNOW = "snow";
     public static final String SKY_STORM = "storm";
+
+    // Alert settings, chosen in the phone app and applied on Glass
+    public static final String F_WAKE = "wake";
+    public static final String F_SOUND = "sound";
+    public static final String F_ALERT_SECONDS = "alertSeconds";
 
     // METAR fields
     public static final String F_STATIONS = "stations";

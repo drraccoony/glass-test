@@ -8,6 +8,7 @@ public class CompanionApp extends Application {
     private Prefs prefs;
     private WeatherProvider weather;
     private MetarProvider metar;
+    private GlassSettings glassSettings;
 
     @Override
     public void onCreate() {
@@ -18,6 +19,12 @@ public class CompanionApp extends Application {
         link.addHook(weather);
         metar = new MetarProvider(this, prefs, link);
         link.addHook(metar);
+        glassSettings = new GlassSettings(prefs, link);
+        link.addHook(glassSettings);
+    }
+
+    static GlassSettings glassSettings(Context context) {
+        return ((CompanionApp) context.getApplicationContext()).glassSettings;
     }
 
     static MetarProvider metar(Context context) {
