@@ -98,7 +98,19 @@ public class LinkService extends Service {
         }
     }
 
+    /** Asks the phone for fresh METARs. */
+    static boolean requestMetar() {
+        LinkService svc = instance;
+        if (svc == null) return false;
+        try {
+            return svc.sendToPeer(new JSONObject().put(Protocol.F_TYPE, Protocol.METAR_REQUEST));
+        } catch (JSONException e) {
+            return false;
+        }
+    }
+
     private static final String WEATHER_PREF = "last_weather";
+    private static final String METAR_PREF = "last_metar";
 
     private final NotificationStore store = NotificationStore.get();
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -128,6 +140,9 @@ public class LinkService extends Service {
         Weather saved = Weather.parse(getSharedPreferences("glasslink", MODE_PRIVATE)
                 .getString(WEATHER_PREF, null));
         if (saved != null) store.setWeather(saved);
+        Metar savedMetar = Metar.parse(getSharedPreferences("glasslink", MODE_PRIVATE)
+                .getString(METAR_PREF, null));
+        if (savedMetar != null) store.setMetar(savedMetar);
         running = true;
         acceptThread = new Thread(this::acceptLoop, "GlassLink-accept");
         acceptThread.start();
@@ -342,6 +357,14 @@ public class LinkService extends Service {
                 if (alert) alertUser(note);
             } else if (Protocol.REMOVE.equals(type)) {
                 store.remove(msg.getString(Protocol.F_KEY));
+            } else if (Protocol.METAR.equals(type)) {
+                String json = msg.toString();
+                Metar m = Metar.parse(json);
+                if (m != null) {
+                    store.setMetar(m);
+                    getSharedPreferences("glasslink", MODE_PRIVATE).edit()
+                            .putString(METAR_PREF, json).apply();
+                }
             } else if (Protocol.CLOCK.equals(type)) {
                 applyTimeZone(msg.optString(Protocol.F_TIMEZONE, ""));
             } else if (Protocol.WEATHER.equals(type)) {

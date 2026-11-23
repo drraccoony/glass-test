@@ -10,6 +10,9 @@ package dev.glassrevival.protocol;
  * <pre>
  * phone -> glass   hello   {v, code, name, tz?}      must be the first frame
  * phone -> glass   clock   {tz}                      the phone's time zone changed
+ * phone -> glass   metar   {updated, stations: [{id, name, raw, observed, cat}]}
+ *                            an empty list removes the METAR cards
+ * glass -> phone   metar_request                     user asked for fresh METARs
  * glass -> phone   welcome {v, name, battery, charging}
  * glass -> phone   reject  {reason}                  then Glass closes the socket
  * phone -> glass   notify  {key, pkg, app, title, text, when, alert, icon?, canReply?, choices?}
@@ -49,6 +52,8 @@ public final class Protocol {
     public static final String REPLY_RESULT = "reply_result";
     public static final String WEATHER = "weather";
     public static final String CLOCK = "clock";
+    public static final String METAR = "metar";
+    public static final String METAR_REQUEST = "metar_request";
     public static final String WEATHER_REQUEST = "weather_request";
 
     // Field names
@@ -95,6 +100,14 @@ public final class Protocol {
     public static final String SKY_RAIN = "rain";
     public static final String SKY_SNOW = "snow";
     public static final String SKY_STORM = "storm";
+
+    // METAR fields
+    public static final String F_STATIONS = "stations";
+    public static final String F_ID = "id";
+    public static final String F_RAW = "raw";
+    public static final String F_OBSERVED = "observed";
+    /** Flight category: VFR, MVFR, IFR or LIFR. */
+    public static final String F_CATEGORY = "cat";
 
     /** An IANA time zone ID such as "America/Chicago". */
     public static final String F_TIMEZONE = "tz";

@@ -58,14 +58,15 @@ final class LinkManager {
         String onGlassReply(String key, String text);
     }
 
-    /** Weather source, told when Glass connects or asks for an update. */
-    interface WeatherHook {
+    /** Data sources (weather, METARs), told when Glass connects or asks for an update. */
+    interface GlassHook {
         void onGlassConnected();
 
-        void onGlassRequest();
+        /** @param type the request message type, e.g. {@link Protocol#WEATHER_REQUEST} */
+        void onGlassRequest(String type);
     }
 
-    private volatile WeatherHook weatherHook;
+    private final CopyOnWriteArrayList<GlassHook> hooks = new CopyOnWriteArrayList<>();
 
     private final Context context;
     private final Prefs prefs;
@@ -150,8 +151,8 @@ final class LinkManager {
         return glassCharging;
     }
 
-    void setWeatherHook(WeatherHook hook) {
-        this.weatherHook = hook;
+    void addHook(GlassHook hook) {
+        hooks.add(hook);
     }
 
     void setPeer(Peer peer) {
@@ -283,8 +284,7 @@ final class LinkManager {
         try {
             Peer p = peer;
             if (p != null) p.onGlassConnected();
-            WeatherHook w = weatherHook;
-            if (w != null) w.onGlassConnected();
+            for (GlassHook h : hooks) h.onGlassConnected();
             String frame;
             while ((frame = FrameIO.read(in)) != null) {
                 lastReceived = SystemClock.elapsedRealtime();
@@ -319,9 +319,8 @@ final class LinkManager {
             } catch (JSONException ignored) {
                 // cannot happen
             }
-        } else if (Protocol.WEATHER_REQUEST.equals(type)) {
-            WeatherHook w = weatherHook;
-            if (w != null) w.onGlassRequest();
+        } else if (Protocol.WEATHER_REQUEST.equals(type) || Protocol.METAR_REQUEST.equals(type)) {
+            for (GlassHook h : hooks) h.onGlassRequest(type);
         } else if (Protocol.STATUS.equals(type)) {
             glassBattery = msg.optInt(Protocol.F_BATTERY, glassBattery);
             glassCharging = msg.optBoolean(Protocol.F_CHARGING, glassCharging);

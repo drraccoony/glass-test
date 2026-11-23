@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Phone outline for the status card; tinted green or gray in code. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp" android:height="48dp" android:viewportWidth="48" android:viewportHeight="48">
+    <path android:fillColor="#00000000" android:strokeColor="#FFFFFF" android:strokeWidth="3"
+        android:strokeLineJoin="round"
+        android:pathData="M16,4L32,4Q36,4 36,8L36,40Q36,44 32,44L16,44Q12,44 12,40L12,8Q12,4 16,4Z" />
+    <path android:strokeColor="#FFFFFF" android:strokeWidth="3" android:strokeLineCap="round"
+        android:pathData="M21,38L27,38" />
+</vector>

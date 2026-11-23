@@ -25,6 +25,11 @@ final class Prefs {
     private static final String WEATHER_JSON = "weather_json";
     private static final String WEATHER_AT = "weather_at";
     private static final String WEATHER_STATUS = "weather_status";
+    private static final String METAR_ON = "metar_enabled";
+    private static final String METAR_IDS = "metar_airports";
+    private static final String METAR_JSON = "metar_json";
+    private static final String METAR_AT = "metar_at";
+    private static final String METAR_STATUS = "metar_status";
     static final String DEFAULT_QUICK_REPLIES =
             "OK\nOn my way\nCan't talk now, I'll reply later\nThanks!";
 
@@ -166,6 +171,55 @@ final class Prefs {
 
     void setWeatherStatus(String status) {
         sp.edit().putString(WEATHER_STATUS, status).apply();
+    }
+
+    // ---- METAR ----
+
+    boolean metarEnabled() {
+        return sp.getBoolean(METAR_ON, false);
+    }
+
+    void setMetarEnabled(boolean on) {
+        sp.edit().putBoolean(METAR_ON, on).apply();
+    }
+
+    /** The airports as the user typed them, e.g. "KLVN, KMSP". */
+    String metarAirportsText() {
+        return sp.getString(METAR_IDS, "");
+    }
+
+    void setMetarAirportsText(String text) {
+        sp.edit().putString(METAR_IDS, text).apply();
+    }
+
+    /** Cleaned-up airport codes, in the order typed, at most six. */
+    java.util.List<String> metarAirports() {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        for (String part : metarAirportsText().split("[,\\s]+")) {
+            String id = part.trim().toUpperCase(java.util.Locale.ROOT);
+            if (id.matches("[A-Z0-9]{3,4}") && !out.contains(id) && out.size() < 6) out.add(id);
+        }
+        return out;
+    }
+
+    String metarJson() {
+        return sp.getString(METAR_JSON, null);
+    }
+
+    long metarFetchedAt() {
+        return sp.getLong(METAR_AT, 0);
+    }
+
+    void setMetar(String json, long at) {
+        sp.edit().putString(METAR_JSON, json).putLong(METAR_AT, at).apply();
+    }
+
+    String metarStatus() {
+        return sp.getString(METAR_STATUS, "");
+    }
+
+    void setMetarStatus(String status) {
+        sp.edit().putString(METAR_STATUS, status).apply();
     }
 
     /** Remembers apps that have posted notifications, so the mute list only shows relevant apps. */

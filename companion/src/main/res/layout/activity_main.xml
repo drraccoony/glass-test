@@ -216,6 +216,38 @@
             android:layout_height="wrap_content"
             android:text="Update now" />
 
+        <!-- Step 5 -->
+        <TextView style="@style/Section" android:text="5. Airport weather (METAR)" />
+
+        <Switch
+            android:id="@+id/metar_enabled"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
+            android:text="Show METARs on Glass"
+            android:textSize="16sp" />
+
+        <EditText
+            android:id="@+id/metar_airports"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Airports, comma separated, e.g. KLVN, KMSP"
+            android:importantForAutofill="no"
+            android:inputType="textCapCharacters|textNoSuggestions"
+            android:singleLine="true" />
+
+        <Button
+            android:id="@+id/metar_save"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Save airports" />
+
+        <TextView
+            android:id="@+id/metar_status"
+            style="@style/Hint"
+            android:layout_marginTop="4dp" />
+
         <TextView
             style="@style/Hint"
             android:layout_marginTop="12dp"

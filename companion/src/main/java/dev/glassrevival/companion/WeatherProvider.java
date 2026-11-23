@@ -36,7 +36,7 @@ import org.json.JSONObject;
  * place the user picked, and sends it to Glass. Coordinates are rounded to two decimal
  * places (about 1 km) before they leave the phone.
  */
-final class WeatherProvider implements LinkManager.WeatherHook {
+final class WeatherProvider implements LinkManager.GlassHook {
 
     private static final String TAG = "GlassLink";
     private static final long STALE_MS = 30 * 60 * 1000L;
@@ -68,7 +68,8 @@ final class WeatherProvider implements LinkManager.WeatherHook {
     }
 
     @Override
-    public void onGlassRequest() {
+    public void onGlassRequest(String type) {
+        if (!Protocol.WEATHER_REQUEST.equals(type)) return;
         exec.execute(() -> refresh(true));
     }
 
@@ -366,13 +367,16 @@ final class WeatherProvider implements LinkManager.WeatherHook {
         return Math.round(v * 100) / 100.0;
     }
 
-    private static String get(String url) throws IOException {
+    /** Small HTTP GET helper, shared with {@link MetarProvider}. Blocking. */
+    static String get(String url) throws IOException {
         HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
         c.setConnectTimeout(15000);
         c.setReadTimeout(15000);
         c.setRequestProperty("Accept", "application/json");
+        c.setRequestProperty("User-Agent", "GlassLink/0.1 (Google Glass companion)");
         try {
             int status = c.getResponseCode();
+            if (status == 204) return "";
             if (status != 200) throw new IOException("HTTP " + status);
             try (InputStream in = c.getInputStream()) {
                 ByteArrayOutputStream buf = new ByteArrayOutputStream();

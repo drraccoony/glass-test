@@ -56,6 +56,10 @@ public class MainActivity extends Activity implements LinkManager.Listener {
     private View weatherLocationRow;
     private TextView weatherStatus;
     private WeatherProvider weather;
+    private MetarProvider metar;
+    private Switch metarEnabled;
+    private EditText metarAirports;
+    private TextView metarStatus;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -108,6 +112,19 @@ public class MainActivity extends Activity implements LinkManager.Listener {
             weather.settingsChanged();
         });
         findViewById(R.id.weather_place_button).setOnClickListener(v -> choosePlace());
+
+        metar = CompanionApp.metar(this);
+        metarEnabled = findViewById(R.id.metar_enabled);
+        metarAirports = findViewById(R.id.metar_airports);
+        metarStatus = findViewById(R.id.metar_status);
+        metarEnabled.setChecked(prefs.metarEnabled());
+        metarAirports.setText(prefs.metarAirportsText());
+        metarEnabled.setOnCheckedChangeListener((b, on) -> {
+            prefs.setMetarEnabled(on);
+            metar.settingsChanged();
+            refresh();
+        });
+        findViewById(R.id.metar_save).setOnClickListener(v -> saveAirports());
         weatherLocationButton.setOnClickListener(v -> requestLocation());
         findViewById(R.id.weather_refresh).setOnClickListener(v -> {
             weather.settingsChanged();
@@ -170,6 +187,8 @@ public class MainActivity extends Activity implements LinkManager.Listener {
             weatherLocationButton.setText("Allowed");
             weatherLocationButton.setEnabled(false);
         }
+        String ms = prefs.metarStatus();
+        metarStatus.setText(ms.isEmpty() ? "METARs come from aviationweather.gov and update every 10 minutes." : ms);
         String status = prefs.weatherStatus();
         weatherStatus.setText(status.isEmpty() ? "Weather is fetched from open-meteo.com using a location rounded to about 1 km." : status);
     }
@@ -328,6 +347,27 @@ public class MainActivity extends Activity implements LinkManager.Listener {
                         prefs.setQuickRepliesText(Prefs.DEFAULT_QUICK_REPLIES))
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
+    }
+
+    // ---- METAR ----------------------------------------------------------------------------
+
+    private void saveAirports() {
+        prefs.setMetarAirportsText(metarAirports.getText().toString().trim());
+        List<String> ids = prefs.metarAirports();
+        if (ids.isEmpty()) {
+            metarAirports.setError("Enter airport codes like KLVN, KMSP");
+            return;
+        }
+        metarAirports.setText(TextUtils.join(", ", ids));
+        prefs.setMetarAirportsText(metarAirports.getText().toString());
+        if (!prefs.metarEnabled()) {
+            metarEnabled.setChecked(true); // also triggers a refresh
+        } else {
+            metar.settingsChanged();
+        }
+        Toast.makeText(this, link.isConnected() ? "Sending METARs to Glass"
+                : "Will send when Glass connects", Toast.LENGTH_SHORT).show();
+        metarStatus.postDelayed(this::refresh, 4000);
     }
 
     // ---- Weather --------------------------------------------------------------------------

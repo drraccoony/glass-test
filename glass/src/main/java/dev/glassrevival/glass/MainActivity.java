@@ -57,17 +57,26 @@ public class MainActivity extends Activity implements NotificationStore.Listener
         static final int STATUS = 0;
         static final int WEATHER = 1;
         static final int NOTE = 2;
+        static final int METAR = 3;
 
         final int kind;
         final NotificationStore.Note note;
+        final Metar.Station station;
 
         Card(int kind, NotificationStore.Note note) {
+            this(kind, note, null);
+        }
+
+        Card(int kind, NotificationStore.Note note, Metar.Station station) {
             this.kind = kind;
             this.note = note;
+            this.station = station;
         }
 
         String id() {
-            return kind == NOTE ? "note:" + note.key : "kind:" + kind;
+            if (kind == NOTE) return "note:" + note.key;
+            if (kind == METAR) return "metar:" + station.id;
+            return "kind:" + kind;
         }
 
         @Override
@@ -93,6 +102,8 @@ public class MainActivity extends Activity implements NotificationStore.Listener
     private List<Card> cards = new ArrayList<>();
     private List<NotificationStore.Note> notes = Collections.emptyList();
     private Weather weather;
+    private Metar metar;
+    private boolean metarRefreshing;
 
     private String pendingAlertKey;
     private boolean alertMode;
@@ -190,10 +201,16 @@ public class MainActivity extends Activity implements NotificationStore.Listener
         notes = store.notes();
         weather = store.weather();
         if (weather != previous) weatherRefreshing = false;
+        Metar previousMetar = metar;
+        metar = store.metar();
+        if (metar != previousMetar) metarRefreshing = false;
 
         List<Card> next = new ArrayList<>();
         next.add(new Card(Card.STATUS, null));
         if (weather != null) next.add(new Card(Card.WEATHER, null));
+        if (metar != null) {
+            for (Metar.Station st : metar.stations) next.add(new Card(Card.METAR, null, st));
+        }
         for (NotificationStore.Note n : notes) next.add(new Card(Card.NOTE, n));
         cards = next;
 
@@ -273,6 +290,13 @@ public class MainActivity extends Activity implements NotificationStore.Listener
         final View linkDot;
         final TextView footer;
         final TextView position;
+        final View statusDetails;
+        final ImageView statusIcon;
+        final TextView statusHeadline;
+        final TextView statusSubline;
+        final View[] statusCells = new View[3];
+        final TextView[] statusLabels = new TextView[3];
+        final TextView[] statusValues = new TextView[3];
         final View weatherDetails;
         final ImageView weatherIcon;
         final TextView weatherTemp;
@@ -296,6 +320,20 @@ public class MainActivity extends Activity implements NotificationStore.Listener
             linkDot = v.findViewById(R.id.link_dot);
             footer = (TextView) v.findViewById(R.id.footer);
             position = (TextView) v.findViewById(R.id.position);
+            statusDetails = v.findViewById(R.id.status_details);
+            statusIcon = (ImageView) v.findViewById(R.id.status_icon);
+            statusHeadline = (TextView) v.findViewById(R.id.status_headline);
+            statusSubline = (TextView) v.findViewById(R.id.status_subline);
+            int[][] cellIds = {
+                {R.id.status_cell_0, R.id.status_label_0, R.id.status_value_0},
+                {R.id.status_cell_1, R.id.status_label_1, R.id.status_value_1},
+                {R.id.status_cell_2, R.id.status_label_2, R.id.status_value_2},
+            };
+            for (int i = 0; i < 3; i++) {
+                statusCells[i] = v.findViewById(cellIds[i][0]);
+                statusLabels[i] = (TextView) v.findViewById(cellIds[i][1]);
+                statusValues[i] = (TextView) v.findViewById(cellIds[i][2]);
+            }
             weatherDetails = v.findViewById(R.id.weather_details);
             weatherIcon = (ImageView) v.findViewById(R.id.weather_icon);
             weatherTemp = (TextView) v.findViewById(R.id.weather_temp);
@@ -324,13 +362,22 @@ public class MainActivity extends Activity implements NotificationStore.Listener
         v.linkDot.setBackgroundColor(getResources().getColor(
                 connected ? R.color.glass_green : R.color.glass_red));
         boolean weatherCard = card.kind == Card.WEATHER;
+        boolean statusCard = card.kind == Card.STATUS;
+        boolean customBody = weatherCard || statusCard;
         v.weatherDetails.setVisibility(weatherCard ? View.VISIBLE : View.GONE);
-        v.title.setVisibility(weatherCard ? View.GONE : View.VISIBLE);
-        v.text.setVisibility(weatherCard ? View.GONE : View.VISIBLE);
+        v.statusDetails.setVisibility(statusCard ? View.VISIBLE : View.GONE);
+        v.title.setVisibility(customBody ? View.GONE : View.VISIBLE);
+        v.text.setVisibility(customBody ? View.GONE : View.VISIBLE);
+        // Reset what the METAR card changes, since card views are recycled.
+        v.title.setCompoundDrawablesWithIntrinsicBounds(0, 0, 0, 0);
+        v.text.setTypeface(android.graphics.Typeface.create("sans-serif-light", android.graphics.Typeface.NORMAL));
+        v.time.setTextColor(getResources().getColor(R.color.glass_dim));
         if (card.kind == Card.STATUS) {
             bindStatus(v, connected);
         } else if (weatherCard) {
             bindWeather(v);
+        } else if (card.kind == Card.METAR) {
+            bindMetar(v, card.station);
         } else {
             bindNote(v, card.note, index);
         }
@@ -342,28 +389,51 @@ public class MainActivity extends Activity implements NotificationStore.Listener
         v.icon.setVisibility(View.VISIBLE);
         v.app.setText(R.string.app_name);
         v.time.setText(DateFormat.getTimeFormat(this).format(Calendar.getInstance().getTime()));
-        switch (store.linkState()) {
-            case CONNECTED:
-                String peer = store.peerName();
-                v.title.setText("Connected to " + (peer == null ? "your phone" : peer));
-                break;
-            case BLUETOOTH_OFF:
-                v.title.setText("Bluetooth is off");
-                break;
-            default:
-                v.title.setText("Waiting for your phone");
-                break;
+
+        v.statusIcon.setColorFilter(getResources().getColor(
+                connected ? R.color.glass_green : R.color.glass_dim));
+        String pairCode = PairCode.pretty(PairCode.get(this));
+        if (connected) {
+            String peer = store.peerName();
+            v.statusHeadline.setText("Connected");
+            v.statusSubline.setText(peer == null ? "Your phone" : peer);
+            int n = notes.size();
+            int battery = glassBattery();
+            setStatusCell(v, 0, "NOTIFICATIONS", Integer.toString(n));
+            setStatusCell(v, 1, "GLASS BATTERY", battery < 0 ? "\u2013" : battery + "%");
+            setStatusCell(v, 2, "PAIR CODE", pairCode);
+            v.footer.setText(cards.size() > 1 ? "Swipe for more cards" : "Ready for notifications");
+        } else {
+            boolean btOff = store.linkState() == NotificationStore.LinkState.BLUETOOTH_OFF;
+            v.statusHeadline.setText(btOff ? "Bluetooth is off" : "Waiting for phone");
+            v.statusSubline.setText(btOff ? "Turn it on in Settings" : "Open GlassLink on your phone");
+            BluetoothAdapter bt = BluetoothAdapter.getDefaultAdapter();
+            setStatusCell(v, 0, "PAIR CODE", pairCode);
+            setStatusCell(v, 1, "GLASS ADDRESS", bt == null ? "\u2013" : bt.getAddress());
+            setStatusCell(v, 2, null, null);
+            v.footer.setText("Tap to make Glass discoverable");
         }
-        StringBuilder sb = new StringBuilder();
-        sb.append("Pair code  ").append(PairCode.pretty(PairCode.get(this)));
-        BluetoothAdapter bt = BluetoothAdapter.getDefaultAdapter();
-        if (bt != null) sb.append("\nGlass address  ").append(bt.getAddress());
-        if (!connected) sb.append("\nTap to make Glass discoverable");
-        v.text.setText(sb);
-        int n = notes.size();
-        v.footer.setText(n == 0 ? "No notifications" : n == 1 ? "1 notification, swipe to view"
-                : n + " notifications, swipe to view");
         v.position.setText("");
+    }
+
+    /** A null label hides the cell; the address needs two cells' width when it's shown. */
+    private void setStatusCell(CardViews v, int i, String label, String value) {
+        if (label == null) {
+            v.statusCells[i].setVisibility(View.GONE);
+            return;
+        }
+        v.statusCells[i].setVisibility(View.VISIBLE);
+        v.statusLabels[i].setText(label);
+        v.statusValues[i].setText(value);
+    }
+
+    private int glassBattery() {
+        android.content.Intent b = registerReceiver(null,
+                new android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED));
+        if (b == null) return -1;
+        int level = b.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1);
+        int scale = b.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100);
+        return level < 0 || scale <= 0 ? -1 : Math.round(level * 100f / scale);
     }
 
     private void bindWeather(CardViews v) {
@@ -397,6 +467,29 @@ public class MainActivity extends Activity implements NotificationStore.Listener
         v.position.setText("");
     }
 
+    private void bindMetar(CardViews v, Metar.Station st) {
+        v.icon.setVisibility(View.GONE);
+        v.app.setText(st.name.isEmpty() ? "METAR" : st.name);
+        v.time.setText(st.category);
+        v.time.setTextColor(Metar.categoryColor(st.category));
+        v.title.setText(st.id);
+        v.title.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_airplane, 0, 0, 0);
+        v.title.setCompoundDrawablePadding((int) (10 * getResources().getDisplayMetrics().density));
+        v.text.setTypeface(android.graphics.Typeface.MONOSPACE);
+        v.text.setText(st.raw.startsWith("METAR ") || st.raw.startsWith("SPECI ")
+                ? st.raw.substring(6) : st.raw);
+        String age;
+        if (st.observed <= 0) {
+            age = "No report";
+        } else {
+            long minutes = (System.currentTimeMillis() - st.observed) / 60000;
+            age = "Observed " + (minutes < 1 ? "just now" : minutes < 60 ? minutes + "m ago"
+                    : minutes < 24 * 60 ? (minutes / 60) + "h ago" : "over a day ago");
+        }
+        v.footer.setText(metarRefreshing ? "Updating\u2026" : age + ", tap to refresh");
+        v.position.setText("");
+    }
+
     private void bindNote(CardViews v, NotificationStore.Note note, int index) {
         if (note.icon == null) {
             v.icon.setVisibility(View.GONE);
@@ -410,7 +503,7 @@ public class MainActivity extends Activity implements NotificationStore.Listener
         v.title.setVisibility(note.title.isEmpty() ? View.GONE : View.VISIBLE);
         v.text.setText(note.text);
         v.footer.setText(note.canReply || !note.choices.isEmpty() ? "Tap to reply or dismiss" : "Tap for options");
-        int first = weather != null ? 2 : 1;
+        int first = cards.size() - notes.size();
         v.position.setText((index - first + 1) + " / " + notes.size());
     }
 
@@ -438,6 +531,16 @@ public class MainActivity extends Activity implements NotificationStore.Listener
         } else if (card.kind == Card.WEATHER) {
             play(Sounds.TAP);
             refreshWeather();
+        } else if (card.kind == Card.METAR) {
+            metarRefreshing = LinkService.requestMetar();
+            play(metarRefreshing ? Sounds.TAP : Sounds.DISALLOWED);
+            adapter.notifyDataSetChanged();
+            handler.postDelayed(() -> {
+                if (metarRefreshing) {
+                    metarRefreshing = false;
+                    adapter.notifyDataSetChanged();
+                }
+            }, 20000);
         } else {
             play(Sounds.TAP);
             actionKey = card.note.key;
