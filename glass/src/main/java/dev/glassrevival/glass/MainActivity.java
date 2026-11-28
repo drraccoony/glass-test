@@ -404,7 +404,7 @@ public class MainActivity extends Activity implements NotificationStore.Listener
         v.title.setText(note.title);
         v.title.setVisibility(note.title.isEmpty() ? View.GONE : View.VISIBLE);
         v.text.setText(note.text);
-        v.footer.setText(note.canReply || !note.choices.isEmpty() ? "Tap to reply or dismiss" : "Tap for options");
+        v.footer.setText(note.canReply || !note.choices.isEmpty() ? "Tap to dismiss or reply" : "Tap for options");
         int first = cards.size() - notes.size();
         v.position.setText((index - first + 1) + " / " + notes.size());
     }
@@ -447,7 +447,9 @@ public class MainActivity extends Activity implements NotificationStore.Listener
         menu.clear();
         NotificationStore.Note note = noteFor(actionKey);
         if (note == null) return false;
+        // Dismiss first, then Reply and the app's quick replies.
         int order = 0;
+        menu.add(Menu.NONE, MENU_DISMISS, order++, "Dismiss").setIcon(R.drawable.ic_menu_dismiss);
         if (note.canReply && voiceAvailable()) {
             menu.add(Menu.NONE, MENU_VOICE, order++, "Reply").setIcon(R.drawable.ic_menu_reply);
         }
@@ -455,7 +457,6 @@ public class MainActivity extends Activity implements NotificationStore.Listener
             menu.add(Menu.NONE, MENU_CHOICE_BASE + i, order++, note.choices.get(i))
                     .setIcon(R.drawable.ic_menu_quick);
         }
-        menu.add(Menu.NONE, MENU_DISMISS, order, "Dismiss").setIcon(R.drawable.ic_menu_dismiss);
         return true;
     }
 

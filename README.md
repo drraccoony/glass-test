@@ -103,7 +103,7 @@ to make it discoverable for 5 minutes, then pair from the phone.
 
 GlassLink can also put notifications into Glass's own timeline, the cards to the
 right of the clock, the way MyGlass did. They chime and wake Glass like native
-notifications. Tap one for **Reply** (if the app supports it), **Read aloud** or **Dismiss**.
+notifications. Tap one for **Dismiss**, **Reply** (if the app supports it) or **Read aloud**.
 
 Glass only lets system apps write to the timeline. XE24 in debug mode gives adb root,
 so the script can install GlassLink as one (Glass reboots once):

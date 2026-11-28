@@ -240,6 +240,10 @@ public final class NativeTimeline {
                 .message(F_CREATOR, creator)
                 .string(F_TEXT, cardText(card)) // plain fallback; Glass shows the HTML
                 .string(F_HTML, CardHtml.build(card));
+        // Menu order: Dismiss, Reply, Read aloud.
+        item.message(F_MENU_ITEM, new Proto().string(M_ID, "delete").int32(M_ACTION, ACTION_DELETE)
+                .message(M_VALUE, new Proto().string(V_DISPLAY_NAME, "Dismiss"))
+                .string(M_VOICE_COMMAND, "DISMISS_THIS")); // "ok glass, dismiss this"
         if (card.canReply) {
             item.message(F_MENU_ITEM, new Proto()
                     .string(M_ID, "reply")
@@ -251,9 +255,6 @@ public final class NativeTimeline {
                     .string(M_VOICE_COMMAND, "REPLY"));
         }
         item.message(F_MENU_ITEM, new Proto().string(M_ID, "read").int32(M_ACTION, ACTION_READ_ALOUD));
-        item.message(F_MENU_ITEM, new Proto().string(M_ID, "delete").int32(M_ACTION, ACTION_DELETE)
-                .message(M_VALUE, new Proto().string(V_DISPLAY_NAME, "Dismiss"))
-                .string(M_VOICE_COMMAND, "DISMISS_THIS")); // "ok glass, dismiss this"
         item.int32(F_CLOUD_SYNC_PROTOCOL, SYNC_NEVER)
                 .int32(F_SOURCE_TYPE, SOURCE_TYPE_DEVICE)
                 .uint64(F_DISPLAY_TIME, display)
