@@ -39,6 +39,8 @@ final class Prefs {
     private static final String METAR_JSON = "metar_json";
     private static final String METAR_AT = "metar_at";
     private static final String METAR_STATUS = "metar_status";
+    private static final String METAR_ALERTS = "metar_alerts";
+    private static final String METAR_AIRPORT_INFO = "metar_airport_info";
     static final String DEFAULT_QUICK_REPLIES =
             "OK\nOn my way\nCan't talk now, I'll reply later\nThanks!";
 
@@ -297,6 +299,24 @@ final class Prefs {
 
     void setMetar(String json, long at) {
         sp.edit().putString(METAR_JSON, json).putLong(METAR_AT, at).apply();
+    }
+
+    /** Chime and open the airport on Glass when its category changes or a SPECI comes out. */
+    boolean metarAlerts() {
+        return sp.getBoolean(METAR_ALERTS, true);
+    }
+
+    void setMetarAlerts(boolean on) {
+        sp.edit().putBoolean(METAR_ALERTS, on).apply();
+    }
+
+    /** Cached runways, elevation and frequencies: a JSON object keyed by airport code. */
+    String metarAirportInfo() {
+        return sp.getString(METAR_AIRPORT_INFO, "{}");
+    }
+
+    void setMetarAirportInfo(String json) {
+        sp.edit().putString(METAR_AIRPORT_INFO, json).apply();
     }
 
     String metarStatus() {

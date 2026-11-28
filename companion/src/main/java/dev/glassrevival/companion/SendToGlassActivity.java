@@ -28,6 +28,11 @@ public class SendToGlassActivity extends Activity {
             finish();
             return;
         }
+        if (!CompanionApp.addOns(this).isInstalled(AddOnManager.RECIPES)) {
+            toast("Recipes isn't on Glass. Add it in GlassLink's Apps tab.");
+            finish();
+            return;
+        }
         if (text == null || text.trim().isEmpty()) {
             toast("Nothing to send");
             finish();

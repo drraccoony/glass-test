@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="glass_black">#000000</color>
+    <color name="glass_white">#FFFFFF</color>
+    <color name="glass_gray">#B3B3B3</color>
+    <color name="glass_dim">#808080</color>
+    <color name="glass_green">#99CC33</color>
+    <color name="glass_red">#CC3333</color>
+    <color name="glass_blue">#34A7FF</color>
+
+</resources>

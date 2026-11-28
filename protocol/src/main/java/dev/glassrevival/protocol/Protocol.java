@@ -56,6 +56,16 @@ package dev.glassrevival.protocol;
  * glass -> phone   status  {battery, charging}
  * either           ping / pong
  *
+ * Add-on apps installed on Glass (the phone's Apps tab):
+ * glass -> phone   apps         {canInstall, items: [{pkg, version, sha}]}
+ *                    sent after welcome and whenever an add-on is installed or removed.
+ *                    items are installed dev.glassrevival.* apps signed with GlassLink's key;
+ *                    sha is the SHA-1 of the APK, so the phone can tell a different build.
+ *                    canInstall: GlassLink may install and remove apps (system install)
+ * phone -> glass   app_install  {pkg, data}           data = base64 APK
+ * phone -> glass   app_remove   {pkg}
+ * glass -> phone   app_result   {pkg, op, ok, error?} op = "install" or "remove"
+ *
  * Add-on apps (see the hub-api module):
  * either           {ch, ...}   any frame with a "ch" field belongs to an add-on app.
  *                    The hub passes it, unchanged, to whichever app on the other
@@ -109,6 +119,16 @@ public final class Protocol {
     public static final String CAST_STOP = "cast_stop";
     public static final String CAST_ERROR = "cast_error";
     public static final String CAST_PREFIX = "cast_";
+    public static final String APPS = "apps";
+    public static final String APP_INSTALL = "app_install";
+    public static final String APP_REMOVE = "app_remove";
+    public static final String APP_RESULT = "app_result";
+    /** Add-on packages: what the Apps tab may install, list and remove. */
+    public static final String ADDON_PREFIX = "dev.glassrevival.";
+    public static final String F_CAN_INSTALL = "canInstall";
+    public static final String F_PKG = "pkg";
+    public static final String F_SHA = "sha";
+    public static final String F_OP = "op";
     /** Frame number in a screencast. */
     public static final String F_SEQ = "seq";
 

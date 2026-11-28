@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Lets the app use its own "show airports" trigger. -->
     <uses-permission android:name="com.google.android.glass.permission.DEVELOPMENT" />
 
@@ -24,6 +25,12 @@
                 android:name="com.google.android.glass.VoiceTrigger"
                 android:resource="@xml/voice_trigger" />
         </activity>
+
+        <!-- One airport's cards. singleTop: an alert for another airport reuses it. -->
+        <activity
+            android:name=".AirportActivity"
+            android:exported="false"
+            android:launchMode="singleTop" />
 
         <!-- Woken by the GlassLink hub when the phone sends METARs. -->
         <receiver

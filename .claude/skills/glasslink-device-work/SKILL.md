@@ -73,6 +73,21 @@ Other apps can share the Glass↔phone link. Details are in the README section "
 - **Message ordering on Glass:** add-on frames are only sent after `welcome`
   (the `Session.welcomed` flag in `LinkService`), because the phone expects `welcome` first.
 
+## Apps tab (installing add-ons from the phone)
+
+- **What it is:** the companion bundles the add-on APKs (`copyAddOns` in `companion/build.gradle`
+  puts them in `assets/addons/<package>.apk`). Glass reports installed `dev.glassrevival.*` apps
+  with the SHA-1 of each APK (`apps` message, `glass/.../AddOns.java`), so any rebuild shows "Update available".
+- **Needs the system install with the current manifest:** permissions come from the `/system`
+  copy, so after `INSTALL_PACKAGES`/`DELETE_PACKAGES` were added it took one more
+  `install-glass-system`. Check with
+  `adb -s $G shell dumpsys package dev.glassrevival.glass | grep -E "INSTALL_PACKAGES|DELETE_PACKAGES"`.
+- **Driving the phone UI from adb:** find buttons with `uiautomator dump` and tap the middle of their
+  `bounds`. Screenshots: `adb -s $P shell screencap -p /sdcard/p.png`, then pull. `exec-out screencap`
+  prepends a multiple-displays warning on the Fold, which corrupts the PNG.
+- **`am force-stop` doesn't stop the companion** (it's running again right away), so editing its
+  `shared_prefs` from adb gets overwritten by the running app.
+
 ## Navigation add-on (`nav-glass`)
 
 - **What it is:** a separate Glass app that uses the hub on channel `dev.glassrevival.nav`.

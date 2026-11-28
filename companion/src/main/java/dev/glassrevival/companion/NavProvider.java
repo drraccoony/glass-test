@@ -170,6 +170,7 @@ final class NavProvider implements LinkManager.GlassHook {
     }
 
     private void send(JSONObject msg) {
+        if (!CompanionApp.addOns(context).isInstalled(AddOnManager.NAV)) return; // nowhere to show it
         try {
             msg.put(Protocol.F_CHANNEL, CHANNEL);
         } catch (JSONException ignored) {

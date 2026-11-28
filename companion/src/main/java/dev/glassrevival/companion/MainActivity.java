@@ -52,7 +52,7 @@ public class MainActivity extends Activity implements LinkManager.Listener {
     private Button glassEditButton;
     private boolean glassEditing;
 
-    private static final String[] TAB_TITLES = {"Glass", "Notifications", "Photos", "Weather", "Airports"};
+    private static final String[] TAB_TITLES = {"Glass", "Notifications", "Photos", "Weather", "Apps"};
     private static final int TAB_PHOTOS = 2;
     private final View[] pages = new View[5];
     private final View[] tabs = new View[5];
@@ -80,6 +80,7 @@ public class MainActivity extends Activity implements LinkManager.Listener {
     private TextView weatherStatus;
     private WeatherProvider weather;
     private MetarProvider metar;
+    private AppsPage appsPage;
     private Switch metarEnabled;
     private EditText metarAirports;
     private TextView metarStatus;
@@ -166,6 +167,10 @@ public class MainActivity extends Activity implements LinkManager.Listener {
             refresh();
         });
         findViewById(R.id.metar_save).setOnClickListener(v -> saveAirports());
+        appsPage = new AppsPage(this, CompanionApp.addOns(this), link);
+        Switch metarAlerts = findViewById(R.id.metar_alerts);
+        metarAlerts.setChecked(prefs.metarAlerts());
+        metarAlerts.setOnCheckedChangeListener((b, on) -> prefs.setMetarAlerts(on));
         weatherLocationButton.setOnClickListener(v -> requestLocation());
         findViewById(R.id.weather_refresh).setOnClickListener(v -> {
             weather.settingsChanged();
@@ -181,6 +186,7 @@ public class MainActivity extends Activity implements LinkManager.Listener {
     protected void onResume() {
         super.onResume();
         link.addListener(this);
+        appsPage.onResume();
         if (prefs.enabled()) GlassLinkService.startIfEnabled(this);
         weather.rememberForegroundLocation();
         refresh();
@@ -189,6 +195,7 @@ public class MainActivity extends Activity implements LinkManager.Listener {
     @Override
     protected void onPause() {
         link.removeListener(this);
+        appsPage.onPause();
         super.onPause();
     }
 
@@ -196,6 +203,7 @@ public class MainActivity extends Activity implements LinkManager.Listener {
     public void onLinkChanged() {
         runOnUiThread(() -> {
             refresh();
+            appsPage.refresh(); // Install and Remove need the link
             // Load the gallery once the link comes up while the Photos tab is open.
             boolean connected = link.isConnected();
             if (connected && !photosRequested && currentTab == TAB_PHOTOS && !media.listLoaded()) {
@@ -536,13 +544,13 @@ public class MainActivity extends Activity implements LinkManager.Listener {
         headerDot = findViewById(R.id.header_dot);
         headerState = findViewById(R.id.header_state);
         int[] pageIds = {R.id.page_glass, R.id.page_notifications, R.id.page_photos, R.id.page_weather,
-            R.id.page_airports};
+            R.id.page_apps};
         int[][] tabIds = {
             {R.id.tab_glass, R.id.tab_glass_icon, R.id.tab_glass_label},
             {R.id.tab_notifications, R.id.tab_notifications_icon, R.id.tab_notifications_label},
             {R.id.tab_photos, R.id.tab_photos_icon, R.id.tab_photos_label},
             {R.id.tab_weather, R.id.tab_weather_icon, R.id.tab_weather_label},
-            {R.id.tab_airports, R.id.tab_airports_icon, R.id.tab_airports_label},
+            {R.id.tab_apps, R.id.tab_apps_icon, R.id.tab_apps_label},
         };
         for (int i = 0; i < 5; i++) {
             final int index = i;

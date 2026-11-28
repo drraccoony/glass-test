@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Weather</string>
+    <string name="no_weather">No forecast yet</string>
+    <string name="no_weather_hint">The phone sends one when Glass connects. Check Weather in GlassLink\'s Apps tab on the phone.</string>
+</resources>

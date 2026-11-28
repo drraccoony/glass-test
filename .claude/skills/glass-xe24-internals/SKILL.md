@@ -120,6 +120,11 @@ Inserting a row is silent. The home screen alerts only when it receives this bro
 - **Updating later:** `adb install -r` makes it an "updated system app"
   (flags `UPDATED_SYSTEM_APP PRIVILEGED`) and it **keeps** the permissions.
 - `scripts/glasslink.sh install-glass-system` and `uninstall-glass-system` automate all of this.
+- **Installing other apps from the app:** a priv-app that requests `INSTALL_PACKAGES` and
+  `DELETE_PACKAGES` gets both. It can then run `pm install -r <file>` / `pm uninstall <pkg>`
+  with `ProcessBuilder`. pm runs as the app's uid and prints `Success` or `Failure [REASON]`.
+  The APK must be readable by others (`setReadable(true, false)`, and `setExecutable(true, false)`
+  on its directories). `AddOns.java` does this for the phone's Apps tab.
 
 ## Re-deriving or digging further
 

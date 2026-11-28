@@ -122,6 +122,7 @@ public class LinkService extends Service {
     /** Glass's own timeline. Null unless GlassLink is installed as a system app. */
     private NativeTimeline timeline;
     private PhoneLocation phoneLocation;
+    private AddOns addOns;
     private final ScreenCaster caster = new ScreenCaster(this::sendToPeer);
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService sender = Executors.newSingleThreadExecutor();
@@ -146,6 +147,13 @@ public class LinkService extends Service {
                 .setOngoing(true)
                 .build());
         registerReceiver(batteryReceiver, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        addOns = new AddOns(this, this::sendToPeer);
+        IntentFilter packages = new IntentFilter();
+        packages.addAction(Intent.ACTION_PACKAGE_ADDED);
+        packages.addAction(Intent.ACTION_PACKAGE_REMOVED);
+        packages.addAction(Intent.ACTION_PACKAGE_REPLACED);
+        packages.addDataScheme("package");
+        registerReceiver(packageReceiver, packages);
         // Show the last forecast right away, even before the phone reconnects.
         Weather saved = Weather.parse(getSharedPreferences("glasslink", MODE_PRIVATE)
                 .getString(WEATHER_PREF, null));
@@ -205,6 +213,7 @@ public class LinkService extends Service {
         }
         acceptThread.interrupt();
         unregisterReceiver(batteryReceiver);
+        unregisterReceiver(packageReceiver);
         media.shutdown();
         mediaServer.stop();
         sender.shutdownNow();
@@ -386,6 +395,7 @@ public class LinkService extends Service {
             send(welcome);
             welcomed = true;
             hub.setConnected(true);
+            addOns.sendList(); // for the phone's Apps tab
             return true;
         }
 
@@ -433,6 +443,8 @@ public class LinkService extends Service {
                 if (timeline != null) timeline.remove(key);
             } else if (type.startsWith(Protocol.MEDIA_PREFIX)) {
                 media.handle(this, msg);
+            } else if (Protocol.APP_INSTALL.equals(type) || Protocol.APP_REMOVE.equals(type)) {
+                addOns.handle(msg);
             } else if (Protocol.SETTINGS.equals(type)) {
                 getSharedPreferences("glasslink", MODE_PRIVATE).edit()
                         .putBoolean(PREF_WAKE, msg.optBoolean(Protocol.F_WAKE, true))
@@ -583,6 +595,23 @@ public class LinkService extends Service {
             return null;
         }
     }
+
+    // ---- Add-on apps ----------------------------------------------------------------------
+
+    /** An add-on was installed, updated or removed (here, by adb, or from the phone). */
+    private final BroadcastReceiver packageReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String pkg = intent.getData() == null ? null : intent.getData().getSchemeSpecificPart();
+            if (pkg == null || !pkg.startsWith(Protocol.ADDON_PREFIX)) return;
+            // An update sends REMOVED (replacing) then ADDED and REPLACED; report once it's back.
+            if (Intent.ACTION_PACKAGE_REMOVED.equals(intent.getAction())
+                    && intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)) return;
+            if (Intent.ACTION_PACKAGE_ADDED.equals(intent.getAction())
+                    && intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)) return;
+            addOns.sendList();
+        }
+    };
 
     // ---- Battery --------------------------------------------------------------------------
 

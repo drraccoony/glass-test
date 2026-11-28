@@ -115,6 +115,21 @@ Turn it off with **Show in the Glass timeline** in the phone app, or undo the sy
 install with `./scripts/glasslink.sh uninstall-glass-system`. Glass only shows
 alerts while it's being worn. Otherwise the card is added quietly.
 
+## Add-on apps on Glass (optional)
+
+Navigation, Recipes and Airports are separate Glass apps. They come bundled with the
+phone app: open its **Apps** tab, tap one, and choose **Install**, **Update** or **Remove**.
+The tab shows what's on Glass and offers an update when the bundled build differs.
+
+Installing from the phone needs GlassLink's system install on Glass (see
+[Glass timeline](#glass-timeline-optional)). If you did that before the Apps tab existed,
+run `./scripts/glasslink.sh install-glass-system` once more so GlassLink gets permission to
+install apps. Without the system install, use the `install-nav`, `install-recipes` and
+`install-airports` commands below; the Apps tab still shows what's installed.
+
+The phone only sends data an add-on can use: no METAR downloads without Airports, no
+navigation steps without Navigation, and **Send to Glass** says so when Recipes is missing.
+
 ## Navigation (optional)
 
 **GlassLink Navigation** puts Google Maps turn-by-turn on Glass: a live card next to the
@@ -151,11 +166,22 @@ where you left off.
 
 ## Airports (optional)
 
-**Airports** shows the latest METAR for up to six airports, one card each, with the
-raw report and its flight category in color (VFR, MVFR, IFR, LIFR). On the phone, open
-the **Airports** tab, turn on **Show METARs on Glass** and enter codes like `KLVN, KMSP`.
-Reports come from aviationweather.gov and refresh every 10 minutes while Glass is
-connected. On Glass, say **"ok glass, show airports"**. Tap a card to fetch right away.
+**Airports** keeps an eye on up to six airports. On the phone, open the **Apps**
+tab, tap **Airports**, turn on **Show METARs on Glass** and enter codes like `KLVN, KMSP`. Reports come from
+aviationweather.gov and refresh every 10 minutes while Glass is connected.
+
+On Glass, say **"ok glass, show airports"**. Each airport gets a card with its flight
+category in color (VFR, MVFR, IFR, LIFR) and a one-line summary. Tap one for its own cards:
+
+- **METAR**: the raw report.
+- **Conditions**: wind, visibility, ceiling, temperature/dewpoint, altimeter and density altitude.
+- **Runway winds**: headwind and crosswind for each runway, best first.
+- **Airport**: field elevation, whether it's towered and has a rotating beacon, ATIS/tower/ground
+  frequencies and runway sizes.
+
+Tap there to fetch a new report. With **Alert when conditions change** on (the default),
+Glass chimes, wakes and opens the airport when its flight category changes or a special
+report (SPECI) comes out. Units are US: knots, statute miles, inHg and feet.
 
 ```bash
 ./scripts/glasslink.sh install-airports

@@ -15,12 +15,15 @@ public class CompanionApp extends Application {
     private HubHost hub;
     private LocationSharer location;
     private NavProvider nav;
+    private AddOnManager addOns;
 
     @Override
     public void onCreate() {
         super.onCreate();
         prefs = new Prefs(this);
         link = new LinkManager(this, prefs);
+        addOns = new AddOnManager(this, link);
+        link.addSink(addOns);
         weather = new WeatherProvider(this, prefs, link);
         link.addHook(weather);
         metar = new MetarProvider(this, prefs, link);
@@ -57,6 +60,14 @@ public class CompanionApp extends Application {
             }
         });
         link.addListener(() -> hub.setConnected(link.isConnected()));
+        // A freshly installed Airports app gets the latest METARs right away.
+        addOns.addInstallListener(pkg -> {
+            if (AddOnManager.AIRPORTS.pkg.equals(pkg)) metar.glassAppInstalled();
+        });
+    }
+
+    static AddOnManager addOns(Context context) {
+        return ((CompanionApp) context.getApplicationContext()).addOns;
     }
 
     static NavProvider nav(Context context) {

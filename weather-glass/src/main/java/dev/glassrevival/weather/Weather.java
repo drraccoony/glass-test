@@ -1,5 +1,6 @@
-package dev.glassrevival.glass;
+package dev.glassrevival.weather;
 
+import android.content.Context;
 import dev.glassrevival.protocol.Protocol;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -8,8 +9,24 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-/** A forecast as sent by the phone. The phone does the formatting; Glass only displays it. */
+/**
+ * A forecast as sent by the phone on {@link #CHANNEL}. The phone does the formatting;
+ * Glass only displays it.
+ *
+ * <pre>
+ * phone -> glass  weather  {place, temp, feels, desc, sky, day, high, low, rain, wind, unit,
+ *                           windUnit, updated, hours: [{label, temp, sky, day}]}
+ * glass -> phone  sync     {}    send what you have, and fetch if it's old
+ * glass -> phone  refresh  {}    fetch now
+ * </pre>
+ */
 final class Weather {
+
+    static final String CHANNEL = "dev.glassrevival.weather";
+    static final String TYPE = "weather";
+
+    private static final String PREFS = "weather";
+    private static final String PREF_LAST = "last_weather";
 
     static final class Hour {
         final String label;
@@ -83,6 +100,16 @@ final class Weather {
 
     int iconRes() {
         return iconFor(sky, day);
+    }
+
+    /** Keeps the latest forecast so the card shows right away next time. */
+    static void save(Context context, JSONObject msg) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                .putString(PREF_LAST, msg.toString()).apply();
+    }
+
+    static Weather load(Context context) {
+        return parse(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(PREF_LAST, null));
     }
 
     static int iconFor(String sky, boolean day) {

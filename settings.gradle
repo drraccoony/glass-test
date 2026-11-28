@@ -13,4 +13,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = 'glasslink'
-include ':protocol', ':hub-api', ':glass', ':nav-glass', ':recipes-glass', ':airports-glass', ':companion', ':gdk-stubs'
+include ':protocol', ':hub-api', ':glass', ':nav-glass', ':recipes-glass', ':airports-glass', ':weather-glass', ':companion', ':gdk-stubs'

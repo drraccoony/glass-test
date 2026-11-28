@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application
+        android:allowBackup="false"
+        android:icon="@drawable/weather_partly"
+        android:label="@string/app_name">
+
+        <uses-library
+            android:name="com.google.android.glass"
+            android:required="true" />
+
+        <!-- "ok glass, show me the weather": a built-in command, so it works offline. -->
+        <activity
+            android:name=".WeatherActivity"
+            android:exported="true"
+            android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="com.google.android.glass.action.VOICE_TRIGGER" />
+            </intent-filter>
+            <meta-data
+                android:name="com.google.android.glass.VoiceTrigger"
+                android:resource="@xml/voice_trigger" />
+        </activity>
+
+        <!-- Woken by the GlassLink hub when the phone sends a forecast. -->
+        <receiver
+            android:name=".WeatherReceiver"
+            android:exported="true"
+            android:permission="dev.glassrevival.permission.HUB">
+            <intent-filter>
+                <action android:name="dev.glassrevival.hub.action.MESSAGE" />
+            </intent-filter>
+            <meta-data
+                android:name="dev.glassrevival.hub.CHANNELS"
+                android:value="dev.glassrevival.weather" />
+        </receiver>
+    </application>
+</manifest>

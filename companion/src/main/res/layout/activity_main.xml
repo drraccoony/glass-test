@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Five pages (Glass, Notifications, Photos, Weather, Airports) switched by the bottom tab bar. -->
+<!-- Five pages (Glass, Notifications, Photos, Weather, Apps) switched by the bottom tab bar. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -504,7 +504,7 @@
             </LinearLayout>
         </ScrollView>
         <ScrollView
-            android:id="@+id/page_airports"
+            android:id="@+id/page_apps"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:visibility="gone">
@@ -516,13 +516,33 @@
                 android:paddingTop="4dp"
                 android:paddingRight="16dp"
                 android:paddingBottom="24dp">
-            <!-- METAR -->
-            <LinearLayout style="@style/Card" android:layout_marginTop="8dp">
+
+            <!-- Why the buttons are missing, or what this page is. Set in code. -->
+            <TextView
+                android:id="@+id/apps_note"
+                style="@style/Hint"
+                android:layout_marginStart="4dp"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="4dp" />
+
+            <!-- One card per add-on (addon_card.xml), added in code. -->
+            <LinearLayout
+                android:id="@+id/apps_list"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <!-- Airports settings. Code moves this into the Airports card. -->
+            <LinearLayout
+                android:id="@+id/airports_settings"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+                <View style="@style/Divider" android:layout_marginTop="4dp" />
                 <Switch
                     android:id="@+id/metar_enabled"
                     style="@style/SwitchRow"
                     android:text="Show METARs on Glass" />
-                <View style="@style/Divider" />
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -546,13 +566,16 @@
                     android:id="@+id/metar_status"
                     style="@style/Hint"
                     android:layout_marginBottom="6dp" />
+                <View style="@style/Divider" />
+                <Switch
+                    android:id="@+id/metar_alerts"
+                    style="@style/SwitchRow"
+                    android:text="Alert when conditions change" />
+                <TextView
+                    style="@style/Hint"
+                    android:layout_marginBottom="6dp"
+                    android:text="Glass chimes and opens the airport when its flight category changes (say, MVFR to IFR) or a special report comes out." />
             </LinearLayout>
-
-            <TextView
-                style="@style/Hint"
-                android:layout_marginStart="4dp"
-                android:layout_marginTop="16dp"
-                android:text="Each airport gets its own card in the Airports app on Glass (say &quot;ok glass, show airports&quot;), showing the raw METAR and its flight category. Install it with glasslink.sh install-airports. Reports come from aviationweather.gov." />
             </LinearLayout>
         </ScrollView>
     </FrameLayout>
@@ -654,7 +677,7 @@
                 android:textSize="12sp" />
         </LinearLayout>
         <LinearLayout
-            android:id="@+id/tab_airports"
+            android:id="@+id/tab_apps"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
@@ -662,17 +685,17 @@
             android:gravity="center"
             android:orientation="vertical">
             <ImageView
-                android:id="@+id/tab_airports_icon"
+                android:id="@+id/tab_apps_icon"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
                 android:importantForAccessibility="no"
-                android:src="@drawable/tab_airports" />
+                android:src="@drawable/tab_apps" />
             <TextView
-                android:id="@+id/tab_airports_label"
+                android:id="@+id/tab_apps_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
-                android:text="Airports"
+                android:text="Apps"
                 android:textSize="12sp" />
         </LinearLayout>
     </LinearLayout>

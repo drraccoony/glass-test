@@ -33,8 +33,7 @@ import java.util.List;
 
 /**
  * GlassLink's cards, shown in the same scroller as the Glass timeline. Card 0 is the link
- * status, then the weather (once the phone has sent a forecast), then notifications,
- * newest first. Tap a notification for the Glass menu: reply by voice, quick replies or
+ * status, then notifications, newest first. Tap a notification for the Glass menu: reply by voice, quick replies or
  * dismiss. Replies use the Glass "Sending" card with a grace period; swipe down cancels.
  *
  * <p>When launched by {@link LinkService} for a new alert, it opens on that card and
@@ -47,7 +46,6 @@ public class MainActivity extends Activity implements NotificationStore.Listener
     static final String EXTRA_REPLY_KEY = "reply_key";
     private static final long REPLY_TIMEOUT_MS = 15000;
     private static final long RESULT_SHOW_MS = 1500;
-    private static final long WEATHER_STALE_MS = 30 * 60 * 1000L;
     private static final int REQ_VOICE = 1;
 
     private static final int MENU_VOICE = 1;
@@ -141,13 +139,6 @@ public class MainActivity extends Activity implements NotificationStore.Listener
     private void handleIntent(Intent intent) {
         String key = intent.getStringExtra(EXTRA_ALERT_KEY);
         handler.removeCallbacks(alertTimeout);
-        // "ok glass, check the weather" arrives through the WeatherAlias component.
-        if (intent.getComponent() != null
-                && intent.getComponent().getClassName().endsWith(".WeatherAlias")) {
-            pendingWeatherCard = true;
-            Weather w = store.weather();
-            if (w == null || System.currentTimeMillis() - w.updated > WEATHER_STALE_MS) refreshWeather();
-        }
         String replyKey = intent.getStringExtra(EXTRA_REPLY_KEY);
         intent.removeExtra(EXTRA_REPLY_KEY);
         // Don't pull the user away from a reply in progress.
@@ -223,14 +214,10 @@ public class MainActivity extends Activity implements NotificationStore.Listener
     private void refresh() {
         int selected = scroller.getSelectedItemPosition();
         Card current = selected >= 0 && selected < cards.size() ? cards.get(selected) : null;
-        Weather previous = weather;
         notes = store.notes();
-        weather = store.weather();
-        if (weather != previous) weatherRefreshing = false;
 
         List<Card> next = new ArrayList<>();
         next.add(new Card(Card.STATUS, null));
-        if (weather != null) next.add(new Card(Card.WEATHER, null));
         for (NotificationStore.Note n : notes) next.add(new Card(Card.NOTE, n));
         cards = next;
 
@@ -242,10 +229,6 @@ public class MainActivity extends Activity implements NotificationStore.Listener
                 target = i;
                 pendingAlertKey = null;
             }
-        }
-        if (pendingWeatherCard && weather != null && resumed) {
-            target = 1;
-            pendingWeatherCard = false;
         }
         adapter.notifyDataSetChanged();
         final int selection = Math.max(0, target);
@@ -317,19 +300,6 @@ public class MainActivity extends Activity implements NotificationStore.Listener
         final View[] statusCells = new View[3];
         final TextView[] statusLabels = new TextView[3];
         final TextView[] statusValues = new TextView[3];
-        final View weatherDetails;
-        final ImageView weatherIcon;
-        final TextView weatherTemp;
-        final TextView weatherDesc;
-        final TextView feels;
-        final TextView high;
-        final TextView low;
-        final TextView rain;
-        final TextView wind;
-        final View[] hours = new View[3];
-        final TextView[] hourLabels = new TextView[3];
-        final ImageView[] hourIcons = new ImageView[3];
-        final TextView[] hourTemps = new TextView[3];
 
         CardViews(View v) {
             icon = (ImageView) v.findViewById(R.id.icon);
@@ -381,17 +351,13 @@ public class MainActivity extends Activity implements NotificationStore.Listener
         boolean connected = store.linkState() == NotificationStore.LinkState.CONNECTED;
         v.linkDot.setBackgroundColor(getResources().getColor(
                 connected ? R.color.glass_green : R.color.glass_red));
-        boolean weatherCard = card.kind == Card.WEATHER;
         boolean statusCard = card.kind == Card.STATUS;
-        boolean customBody = weatherCard || statusCard;
-        v.weatherDetails.setVisibility(weatherCard ? View.VISIBLE : View.GONE);
+        boolean customBody = statusCard;
         v.statusDetails.setVisibility(statusCard ? View.VISIBLE : View.GONE);
         v.title.setVisibility(customBody ? View.GONE : View.VISIBLE);
         v.text.setVisibility(customBody ? View.GONE : View.VISIBLE);
         if (card.kind == Card.STATUS) {
             bindStatus(v, connected);
-        } else if (weatherCard) {
-            bindWeather(v);
         } else {
             bindNote(v, card.note, index);
         }
@@ -450,37 +416,6 @@ public class MainActivity extends Activity implements NotificationStore.Listener
         return level < 0 || scale <= 0 ? -1 : Math.round(level * 100f / scale);
     }
 
-    private void bindWeather(CardViews v) {
-        Weather w = weather;
-        v.icon.setVisibility(View.GONE);
-        v.app.setText(w.place.isEmpty() ? getString(R.string.weather) : w.place);
-        v.time.setText(DateFormat.getTimeFormat(this).format(Calendar.getInstance().getTime()));
-        v.weatherIcon.setImageResource(w.iconRes());
-        v.weatherTemp.setText(w.temp + "\u00B0");
-        v.weatherDesc.setText(w.desc);
-        v.feels.setText(w.feels + "\u00B0");
-        v.high.setText(w.high + "\u00B0");
-        v.low.setText(w.low + "\u00B0");
-        v.rain.setText(w.rain >= 0 ? w.rain + "%" : "\u2013");
-        v.wind.setText(w.wind >= 0 ? w.wind + " " + w.windUnit : "\u2013");
-        for (int i = 0; i < 3; i++) {
-            if (i < w.hours.size()) {
-                Weather.Hour h = w.hours.get(i);
-                v.hours[i].setVisibility(View.VISIBLE);
-                v.hourLabels[i].setText(h.label);
-                v.hourIcons[i].setImageResource(h.iconRes());
-                v.hourTemps[i].setText(h.temp + "\u00B0");
-            } else {
-                v.hours[i].setVisibility(View.INVISIBLE);
-            }
-        }
-        long minutes = (System.currentTimeMillis() - w.updated) / 60000;
-        String age = minutes < 1 ? "just now" : minutes < 60 ? minutes + "m ago"
-                : minutes < 24 * 60 ? (minutes / 60) + "h ago" : "over a day ago";
-        v.footer.setText(weatherRefreshing ? "Updating\u2026" : "Updated " + age + ", tap to refresh");
-        v.position.setText("");
-    }
-
     private void bindNote(CardViews v, NotificationStore.Note note, int index) {
         if (note.icon == null) {
             v.icon.setVisibility(View.GONE);
@@ -519,9 +454,6 @@ public class MainActivity extends Activity implements NotificationStore.Listener
                 play(Sounds.TAP);
                 requestDiscoverable();
             }
-        } else if (card.kind == Card.WEATHER) {
-            play(Sounds.TAP);
-            refreshWeather();
         } else {
             play(Sounds.TAP);
             actionKey = card.note.key;
@@ -674,23 +606,7 @@ public class MainActivity extends Activity implements NotificationStore.Listener
         refresh();
     }
 
-    // ---- Weather and Bluetooth ------------------------------------------------------------
-
-    private void refreshWeather() {
-        weatherRefreshing = LinkService.requestWeather();
-        if (!weatherRefreshing) {
-            play(Sounds.DISALLOWED);
-            return;
-        }
-        adapter.notifyDataSetChanged();
-        // If nothing changes (the phone says it's still fresh), stop showing "updating".
-        handler.postDelayed(() -> {
-            if (weatherRefreshing) {
-                weatherRefreshing = false;
-                adapter.notifyDataSetChanged();
-            }
-        }, 20000);
-    }
+    // ---- Bluetooth ------------------------------------------------------------------------
 
     private void requestDiscoverable() {
         Intent intent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE)

@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-One airport. Glass is 640x360 px at hdpi, about 427x240 dp. Same look as GlassLink's cards.
+A text card: the airport list, the raw METAR, runway winds and airport details. Glass is
+640x360 px at hdpi, about 427x240 dp. Same look as GlassLink's cards.
 
   Lakeville/Airlake Arpt, MN              VFR
   [plane] KLVN
   KLVN 281753Z 31012KT 10SM CLR M02/M11 A3021
-  Observed 12m ago, tap to refresh      1 / 2
+  Observed 12m ago                      1 / 2
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -59,7 +60,7 @@ One airport. Glass is 640x360 px at hdpi, about 427x240 dp. Same look as GlassLi
         android:textSize="26sp" />
 
     <TextView
-        android:id="@+id/raw"
+        android:id="@+id/body"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_marginTop="4dp"
