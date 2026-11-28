@@ -34,6 +34,16 @@ package dev.glassrevival.protocol;
  * glass -> phone   media_error  {id, error}
  * phone -> glass   media_delete {ids}                 permanently deletes from Glass
  * glass -> phone   media_deleted {ids, failed}
+ * Screencast (view Glass's screen on the phone):
+ * phone -> glass   cast_start {bt?}                  start; bt=true forces Bluetooth frames
+ * glass -> phone   cast_url   {url}                  Glass is on Wi-Fi: an MJPEG stream (multipart,
+ *                    each part with Content-Length). If the phone can't open it, it asks
+ *                    again with bt=true
+ * glass -> phone   cast_frame {seq, data, w, h}      Bluetooth fallback: base64 JPEG, ~2.5 fps
+ * phone -> glass   cast_ack   {seq}                  frame shown; Glass sends the next
+ * phone -> glass   cast_stop                         viewer closed
+ * glass -> phone   cast_error {error}                Glass can't capture (casting stops)
+ *
  * glass -> phone   welcome {v, name, battery, charging}
  * glass -> phone   reject  {reason}                  then Glass closes the socket
  * phone -> glass   notify  {key, pkg, app, title, text, when, alert, icon?, avatar?, canReply?, choices?}
@@ -97,6 +107,15 @@ public final class Protocol {
     public static final String MEDIA_DELETED = "media_deleted";
     public static final String MEDIA_PREFIX = "media_";
     public static final String WEATHER_REQUEST = "weather_request";
+    public static final String CAST_START = "cast_start";
+    public static final String CAST_FRAME = "cast_frame";
+    public static final String CAST_URL = "cast_url";
+    public static final String CAST_ACK = "cast_ack";
+    public static final String CAST_STOP = "cast_stop";
+    public static final String CAST_ERROR = "cast_error";
+    public static final String CAST_PREFIX = "cast_";
+    /** Frame number in a screencast. */
+    public static final String F_SEQ = "seq";
 
     // Field names
     public static final String F_TYPE = "type";

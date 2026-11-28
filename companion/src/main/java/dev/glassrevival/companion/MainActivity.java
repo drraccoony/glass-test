@@ -129,6 +129,8 @@ public class MainActivity extends Activity implements LinkManager.Listener {
         findViewById(R.id.quick_replies).setOnClickListener(v -> editQuickReplies());
         setUpNotificationOptions();
         setUpLocationSharing();
+        findViewById(R.id.screencast).setOnClickListener(
+                v -> startActivity(new android.content.Intent(this, CastActivity.class)));
         enabled.setOnCheckedChangeListener((button, on) -> setForwarding(on));
 
         weather = CompanionApp.weather(this);

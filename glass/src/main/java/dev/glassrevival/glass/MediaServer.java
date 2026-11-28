@@ -33,6 +33,24 @@ final class MediaServer {
     private final String token;
     private final ExecutorService pool = Executors.newFixedThreadPool(2);
     private ServerSocket server;
+    private volatile ScreenCaster caster;
+
+    void setCaster(ScreenCaster caster) {
+        this.caster = caster;
+    }
+
+    /** The Wi-Fi screencast stream, or null when Glass isn't on Wi-Fi. */
+    synchronized String castUrl() {
+        String ip = wifiAddress();
+        if (ip == null) return null;
+        try {
+            if (server == null || server.isClosed()) start();
+        } catch (IOException e) {
+            Log.w(TAG, "Media server failed to start", e);
+            return null;
+        }
+        return "http://" + ip + ":" + server.getLocalPort() + "/cast?t=" + token;
+    }
 
     MediaServer(Context context, MediaLibrary library) {
         this.context = context.getApplicationContext();
@@ -90,6 +108,13 @@ final class MediaServer {
                 // ignore headers
             }
             OutputStream out = c.getOutputStream();
+            if (isCastRequest(request)) {
+                ScreenCaster sc = caster;
+                c.setSoTimeout(0);
+                c.setTcpNoDelay(true);
+                if (sc != null) sc.streamTo(out);
+                return;
+            }
             MediaLibrary.Item item = parse(request);
             if (item == null) {
                 out.write("HTTP/1.0 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
@@ -112,6 +137,14 @@ final class MediaServer {
         } finally {
             closeQuietly(c);
         }
+    }
+
+    /** "GET /cast?t=TOKEN HTTP/1.1" with the right token. */
+    private boolean isCastRequest(String request) {
+        if (request == null || !request.startsWith("GET /cast?t=")) return false;
+        int end = request.indexOf(' ', 12);
+        String given = end < 0 ? request.substring(12) : request.substring(12, end);
+        return Protocol.pairCodesMatch(token, given);
     }
 
     /** "GET /m/p123?t=TOKEN HTTP/1.1" with the right token gives the item; anything else null. */

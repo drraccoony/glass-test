@@ -132,6 +132,7 @@ public class LinkService extends Service {
     /** Glass's own timeline. Null unless GlassLink is installed as a system app. */
     private NativeTimeline timeline;
     private PhoneLocation phoneLocation;
+    private final ScreenCaster caster = new ScreenCaster(this::sendToPeer);
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService sender = Executors.newSingleThreadExecutor();
 
@@ -165,6 +166,7 @@ public class LinkService extends Service {
         MediaLibrary library = new MediaLibrary(getContentResolver());
         mediaServer = new MediaServer(this, library);
         media = new MediaHandler(library, mediaServer);
+        mediaServer.setCaster(caster);
         hub = new HubHost(this, new HubHost.Link() {
             @Override
             public boolean isConnected() {
@@ -207,6 +209,7 @@ public class LinkService extends Service {
         running = false;
         instance = null;
         hub.setConnected(false);
+        caster.stop();
         if (timeline != null) timeline.stop();
         closeQuietly(server);
         synchronized (this) {
@@ -300,6 +303,7 @@ public class LinkService extends Service {
             if (session != s) return;
             session = null;
         }
+        caster.stop();
         hub.setConnected(false);
         store.setLink(adapter != null && adapter.isEnabled()
                 ? NotificationStore.LinkState.WAITING
@@ -459,6 +463,20 @@ public class LinkService extends Service {
                     getSharedPreferences("glasslink", MODE_PRIVATE).edit()
                             .putString(METAR_PREF, json).apply();
                 }
+            } else if (Protocol.CAST_ACK.equals(type)) {
+                caster.ack(msg.optInt(Protocol.F_SEQ));
+            } else if (Protocol.CAST_START.equals(type)) {
+                // Wi-Fi if possible: much faster, and bluedroid can crash under a long
+                // Bluetooth stream.
+                String url = msg.optBoolean(Protocol.F_BT, false) ? null : mediaServer.castUrl();
+                if (url != null) {
+                    caster.allowWifiStream();
+                    send(new JSONObject().put(Protocol.F_TYPE, Protocol.CAST_URL).put(Protocol.F_URL, url));
+                } else {
+                    caster.startBluetooth();
+                }
+            } else if (Protocol.CAST_STOP.equals(type)) {
+                caster.stop();
             } else if (Protocol.LOCATION.equals(type)) {
                 phoneLocation.update(msg);
             } else if (Protocol.CLOCK.equals(type)) {

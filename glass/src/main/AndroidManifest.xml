@@ -25,6 +25,10 @@
     <uses-permission
         android:name="android.permission.WRITE_SECURE_SETTINGS"
         tools:ignore="ProtectedPermissions" />
+    <!-- Screencast to the phone. Granted only to the copy in /system/priv-app. -->
+    <uses-permission
+        android:name="android.permission.READ_FRAME_BUFFER"
+        tools:ignore="ProtectedPermissions" />
     <!--
     Write to Glass's own timeline. Only granted when GlassLink is installed in
     /system/priv-app (scripts/glasslink.sh install-glass-system); otherwise ignored.

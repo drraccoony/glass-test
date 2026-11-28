@@ -202,6 +202,24 @@
                 </LinearLayout>
             </LinearLayout>
 
+            <TextView style="@style/Section" android:text="Screen" />
+            <LinearLayout style="@style/Card">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:minHeight="52dp"
+                    android:orientation="horizontal">
+                    <TextView
+                        style="@style/RowLabel"
+                        android:text="See what's on Glass, live" />
+                    <Button
+                        android:id="@+id/screencast"
+                        style="@style/TextButton"
+                        android:text="Screencast" />
+                </LinearLayout>
+            </LinearLayout>
+
             <TextView style="@style/Section" android:text="Location" />
             <LinearLayout style="@style/Card">
                 <Switch

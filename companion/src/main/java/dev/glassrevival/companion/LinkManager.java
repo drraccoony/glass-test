@@ -68,7 +68,7 @@ final class LinkManager {
 
     private final CopyOnWriteArrayList<GlassHook> hooks = new CopyOnWriteArrayList<>();
 
-    /** Receives media_* replies from Glass. Called on the link's reader thread. */
+    /** Receives media_* and cast_* messages from Glass. Called on the link's reader thread. */
     interface MessageSink {
         void onMessage(JSONObject msg);
     }
@@ -77,6 +77,10 @@ final class LinkManager {
 
     void addSink(MessageSink sink) {
         sinks.add(sink);
+    }
+
+    void removeSink(MessageSink sink) {
+        sinks.remove(sink);
     }
 
     /** Receives frames for add-on apps (any frame with a channel). */
@@ -320,7 +324,7 @@ final class LinkManager {
             return;
         }
         String type = msg.optString(Protocol.F_TYPE);
-        if (type.startsWith(Protocol.MEDIA_PREFIX)) {
+        if (type.startsWith(Protocol.MEDIA_PREFIX) || type.startsWith(Protocol.CAST_PREFIX)) {
             for (MessageSink s : sinks) s.onMessage(msg);
             return;
         }
