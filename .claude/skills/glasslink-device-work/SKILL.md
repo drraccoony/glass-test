@@ -85,6 +85,9 @@ Other apps can share the Glass↔phone link. Details are in the README section "
 - **Driving the phone UI from adb:** find buttons with `uiautomator dump` and tap the middle of their
   `bounds`. Screenshots: `adb -s $P shell screencap -p /sdcard/p.png`, then pull. `exec-out screencap`
   prepends a multiple-displays warning on the Fold, which corrupts the PNG.
+- **APK size matters:** an install crosses Bluetooth at about 5 KB/s. The companion bundles the
+  add-ons' **release** builds. Debug builds are packaged in place and collect holes; Weather's
+  debug APK grew to 267 KB with 60 KB of content. Glass apps only generate hdpi PNGs from vector drawables.
 - **`am force-stop` doesn't stop the companion** (it's running again right away), so editing its
   `shared_prefs` from adb gets overwritten by the running app.
 
