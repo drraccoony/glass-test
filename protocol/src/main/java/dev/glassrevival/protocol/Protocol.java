@@ -13,7 +13,9 @@ package dev.glassrevival.protocol;
  * phone -> glass   metar   {updated, stations: [{id, name, raw, observed, cat}]}
  *                            an empty list removes the METAR cards
  * glass -> phone   metar_request                     user asked for fresh METARs
- * phone -> glass   settings {wake, sound, alertSeconds}  how Glass should alert
+ * phone -> glass   settings {wake, sound, alertSeconds, timeline}  how Glass should alert.
+ *                    timeline=true also puts notifications in Glass's own timeline
+ *                    (needs GlassLink installed as a system app on Glass)
  *
  * Photos and videos on Glass (ids are "p123" for photos, "v45" for videos):
  * phone -> glass   media_list   {offset, limit}
@@ -31,7 +33,9 @@ package dev.glassrevival.protocol;
  * glass -> phone   media_deleted {ids, failed}
  * glass -> phone   welcome {v, name, battery, charging}
  * glass -> phone   reject  {reason}                  then Glass closes the socket
- * phone -> glass   notify  {key, pkg, app, title, text, when, alert, icon?, canReply?, choices?}
+ * phone -> glass   notify  {key, pkg, app, title, text, when, alert, icon?, avatar?, canReply?, choices?}
+ *                    icon is the app icon; avatar is the notification's own picture (usually
+ *                    the sender's photo), both base64 PNG
  * phone -> glass   remove  {key}
  * glass -> phone   dismiss {key}                     user dismissed it on Glass
  * glass -> phone   reply   {key, text}               user replied on Glass
@@ -41,6 +45,11 @@ package dev.glassrevival.protocol;
  * glass -> phone   weather_request                   user asked for fresh weather
  * glass -> phone   status  {battery, charging}
  * either           ping / pong
+ *
+ * Add-on apps (see the hub-api module):
+ * either           {ch, ...}   any frame with a "ch" field belongs to an add-on app.
+ *                    The hub passes it, unchanged, to whichever app on the other
+ *                    device registered that channel. Neither hub looks inside it.
  * </pre>
  */
 public final class Protocol {
@@ -87,6 +96,8 @@ public final class Protocol {
 
     // Field names
     public static final String F_TYPE = "type";
+    /** Add-on channel, e.g. "dev.glassrevival.nav". Core frames never have one. */
+    public static final String F_CHANNEL = "ch";
     public static final String F_VERSION = "v";
     public static final String F_CODE = "code";
     public static final String F_NAME = "name";
@@ -99,6 +110,8 @@ public final class Protocol {
     public static final String F_WHEN = "when";
     public static final String F_ALERT = "alert";
     public static final String F_ICON = "icon";
+    /** The notification's large icon, e.g. the sender's photo. Base64 PNG, 64 px. */
+    public static final String F_AVATAR = "avatar";
     public static final String F_BATTERY = "battery";
     public static final String F_CHARGING = "charging";
     /** True when the notification has a reply action the phone can fill in. */
@@ -134,6 +147,7 @@ public final class Protocol {
     public static final String F_WAKE = "wake";
     public static final String F_SOUND = "sound";
     public static final String F_ALERT_SECONDS = "alertSeconds";
+    public static final String F_TIMELINE = "timeline";
 
     // Media fields
     public static final String F_OFFSET = "offset";
@@ -178,6 +192,24 @@ public final class Protocol {
     // Reject reasons
     public static final String REASON_BAD_CODE = "bad_code";
     public static final String REASON_BAD_VERSION = "bad_version";
+
+    /** Longest channel name. */
+    public static final int MAX_CHANNEL_LENGTH = 100;
+
+    /**
+     * Channel names are 1 to 100 ASCII letters, digits, dots, dashes and underscores.
+     * Use your app's package name, or something under it, so channels don't collide.
+     */
+    public static boolean isValidChannel(String channel) {
+        if (channel == null || channel.isEmpty() || channel.length() > MAX_CHANNEL_LENGTH) return false;
+        for (int i = 0; i < channel.length(); i++) {
+            char c = channel.charAt(i);
+            boolean ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
+                    || c == '.' || c == '-' || c == '_';
+            if (!ok) return false;
+        }
+        return true;
+    }
 
     /** Pair codes are exactly six ASCII digits. */
     public static boolean isValidPairCode(String code) {

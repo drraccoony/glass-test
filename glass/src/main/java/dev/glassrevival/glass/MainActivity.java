@@ -7,6 +7,7 @@ import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.media.AudioManager;
 import android.os.Bundle;
+import android.util.Log;
 import android.os.Handler;
 import android.speech.RecognizerIntent;
 import android.text.format.DateFormat;
@@ -42,6 +43,8 @@ import java.util.List;
 public class MainActivity extends Activity implements NotificationStore.Listener {
 
     static final String EXTRA_ALERT_KEY = "alert_key";
+    /** Open on this notification with its reply menu showing (from a Glass timeline card). */
+    static final String EXTRA_REPLY_KEY = "reply_key";
     private static final long REPLY_TIMEOUT_MS = 15000;
     private static final long RESULT_SHOW_MS = 1500;
     private static final long WEATHER_STALE_MS = 30 * 60 * 1000L;
@@ -155,12 +158,46 @@ public class MainActivity extends Activity implements NotificationStore.Listener
             Weather w = store.weather();
             if (w == null || System.currentTimeMillis() - w.updated > WEATHER_STALE_MS) refreshWeather();
         }
+        String replyKey = intent.getStringExtra(EXTRA_REPLY_KEY);
+        intent.removeExtra(EXTRA_REPLY_KEY);
         // Don't pull the user away from a reply in progress.
-        if (overlay != null) key = null;
-        alertMode = key != null;
-        pendingAlertKey = key;
+        if (overlay != null) {
+            key = null;
+            replyKey = null;
+        }
+        alertMode = key != null && replyKey == null;
+        pendingAlertKey = replyKey != null ? replyKey : key;
         if (alertMode) handler.postDelayed(alertTimeout, LinkService.alertTimeoutMs(this));
         refresh();
+        if (replyKey != null && noteFor(replyKey) != null) {
+            pendingReplyMenuKey = replyKey;
+            // Already showing (opened again from the timeline): open now. Otherwise wait
+            // for onWindowFocusChanged, since the menu needs the window to exist.
+            if (hasWindowFocus()) handler.post(this::openPendingReplyMenu);
+        }
+    }
+
+    /** Notification whose reply menu should open once the window has focus. */
+    private String pendingReplyMenuKey;
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus && pendingReplyMenuKey != null) handler.post(this::openPendingReplyMenu);
+    }
+
+    private void openPendingReplyMenu() {
+        String k = pendingReplyMenuKey;
+        if (k == null || !hasWindowFocus()) return;
+        pendingReplyMenuKey = null;
+        if (overlay != null || noteFor(k) == null) return;
+        actionKey = k;
+        try {
+            openOptionsMenu();
+        } catch (RuntimeException e) {
+            // Never take the link down over a menu; the card is on screen to tap instead.
+            Log.w(LinkService.TAG, "Couldn't open the reply menu", e);
+        }
     }
 
     @Override

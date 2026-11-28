@@ -26,6 +26,7 @@ final class Prefs {
     private static final String WEATHER_AT = "weather_at";
     private static final String WEATHER_STATUS = "weather_status";
     private static final String WAKE = "alert_wake";
+    private static final String TIMELINE = "use_timeline";
     private static final String SOUND = "alert_sound";
     private static final String ALERT_SECONDS = "alert_seconds";
     private static final String ONLY_LOCKED = "alert_only_locked";
@@ -181,6 +182,15 @@ final class Prefs {
     }
 
     // ---- Notification options ----
+
+    /** Put notifications in Glass's own timeline, when GlassLink is a system app there. */
+    boolean useTimeline() {
+        return sp.getBoolean(TIMELINE, true);
+    }
+
+    void setUseTimeline(boolean on) {
+        sp.edit().putBoolean(TIMELINE, on).apply();
+    }
 
     boolean wakeGlass() {
         return sp.getBoolean(WAKE, true);

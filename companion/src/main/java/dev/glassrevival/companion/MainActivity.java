@@ -431,6 +431,11 @@ public class MainActivity extends Activity implements LinkManager.Listener {
             prefs.setPlaySound(on);
             glass.push();
         });
+        bindSwitch(R.id.opt_timeline, prefs.useTimeline(), on -> {
+            prefs.setUseTimeline(on);
+            glass.push();
+            if (on) link.reconnectNow(); // resend so the cards appear in the timeline
+        });
         bindSwitch(R.id.opt_only_locked, prefs.onlyWhenLocked(), prefs::setOnlyWhenLocked);
         bindSwitch(R.id.opt_follow_dnd, prefs.followDnd(), prefs::setFollowDnd);
         bindSwitch(R.id.opt_show_text, prefs.showText(), on -> {

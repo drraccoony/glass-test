@@ -9,6 +9,7 @@ your Android phone's notifications onto the display.
 | `glass/` | Glass (Android 4.4, API 19) | Bluetooth server, notification cards, alerts |
 | `companion/` | Android phone (8.0 or newer) | Reads notifications and sends them to Glass |
 | `protocol/` | Both | Shared message format, with unit tests |
+| `hub-api/` | Both | Library that lets other apps share the link (see [Add-on apps](#add-on-apps)) |
 | `scripts/glasslink.sh` | Your Linux PC | adb setup, USB access, install, logs |
 
 ## Features
@@ -33,6 +34,17 @@ pairing service no longer exists. In 2020 Google published a final firmware
 (XE24) that removes the Google account requirement. Flash it first with Google's
 official instructions for Glass Explorer Edition. You will need `adb` and
 `fastboot`, which `scripts/glasslink.sh setup` installs.
+
+To flash it from Linux, download `signed-glass_1-img-5585826.zip` from
+[Google's Glass system images page](https://developers.google.com/glass/downloads/system), then run:
+
+```bash
+./scripts/flash-xe24.sh ~/Downloads/signed-glass_1-img-5585826.zip
+```
+
+The script puts Glass into fastboot, or tells you how to do it with the buttons. It then
+unlocks the bootloader, flashes boot, system and recovery, wipes the device and reboots.
+Add `--lock` to re-lock the bootloader afterwards.
 
 After flashing, turn on debug mode on Glass: **Settings > Device info > Turn on debug**.
 
@@ -82,6 +94,24 @@ phone connects directly by address and Glass still requires the pair code. With
 it, the Bluetooth link is also encrypted. To pair, tap the status card on Glass
 to make it discoverable for 5 minutes, then pair from the phone.
 
+## Glass timeline (optional)
+
+GlassLink can also put notifications into Glass's own timeline, the cards to the
+right of the clock, the way MyGlass did. They chime and wake Glass like native
+notifications. Tap one for **Reply** (if the app supports it), **Read aloud** or **Dismiss**.
+
+Glass only lets system apps write to the timeline. XE24 in debug mode gives adb root,
+so the script can install GlassLink as one (Glass reboots once):
+
+```bash
+./scripts/glasslink.sh install-glass-system
+```
+
+After that, `install-glass` updates it as usual and Glass keeps the permission.
+Turn it off with **Show in the Glass timeline** in the phone app, or undo the system
+install with `./scripts/glasslink.sh uninstall-glass-system`. Glass only shows
+alerts while it's being worn. Otherwise the card is added quietly.
+
 ## Using it on Glass
 
 | Gesture | Action |
@@ -119,8 +149,45 @@ JSON. The phone must send `hello` with the pair code first. See
 `protocol/src/main/java/dev/glassrevival/protocol/Protocol.java` for every
 message type.
 
+## Add-on apps
+
+Other apps can use the GlassLink connection, so a feature can ship as its own Glass
+app and phone app. GlassLink on Glass and the phone companion each run a **hub**. An
+add-on picks a **channel** name, such as `dev.glassrevival.nav`, and exchanges JSON
+messages with the app on the other device that uses the same channel. On the wire,
+those frames carry a `"ch"` field. Neither hub looks inside them.
+
+Add `implementation project(':hub-api')` and sign the app with the GlassLink key.
+The hub is protected by a signature permission, so apps signed with any other key are refused.
+
+```java
+HubClient nav = new HubClient(context, "dev.glassrevival.nav", new HubClient.Callback() {
+    @Override public void onMessage(JSONObject msg) { /* from the other device */ }
+    @Override public void onConnectionChanged(boolean connected) { /* Glass <-> phone link */ }
+});
+nav.connect();                                   // binds to the hub, starts it if needed
+nav.send(new JSONObject().put("type", "step").put("street", "Main St"));
+nav.disconnect();
+```
+
+To be woken when a message arrives while the app isn't bound, extend `HubReceiver`
+and declare it like this. The hub tries bound clients first, then receivers.
+
+```xml
+<receiver android:name=".NavReceiver" android:exported="true"
+    android:permission="dev.glassrevival.permission.HUB">
+    <intent-filter>
+        <action android:name="dev.glassrevival.hub.action.MESSAGE" />
+    </intent-filter>
+    <meta-data android:name="dev.glassrevival.hub.CHANNELS" android:value="dev.glassrevival.nav" />
+</receiver>
+```
+
+Messages go out only while Glass and the phone are linked. `send()` returns false
+otherwise, and nothing is queued. A message can be up to 512 KB.
+
 ## Signing
 
-Both apps are signed with `keystore/glasslink-dev.jks` (password `glasslink`).
+Both apps, and any add-ons, are signed with `keystore/glasslink-dev.jks` (password `glasslink`).
 It is committed on purpose so builds from your PC and from CI can update each
 other. It is a development key and protects nothing.

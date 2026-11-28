@@ -55,6 +55,16 @@
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
 
+        <!-- The hub that add-on phone apps bind to (see hub-api). -->
+        <service
+            android:name=".HubService"
+            android:exported="true"
+            android:permission="dev.glassrevival.permission.HUB">
+            <intent-filter>
+                <action android:name="dev.glassrevival.hub.action.BIND" />
+            </intent-filter>
+        </service>
+
         <service
             android:name=".GlassNotificationListener"
             android:exported="true"

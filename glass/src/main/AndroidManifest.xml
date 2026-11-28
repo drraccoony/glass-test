@@ -15,6 +15,13 @@
         android:name="android.permission.SET_TIME_ZONE"
         tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!--
+    Write to Glass's own timeline. Only granted when GlassLink is installed in
+    /system/priv-app (scripts/glasslink.sh install-glass-system); otherwise ignored.
+    -->
+    <uses-permission
+        android:name="com.google.glass.sync.permission.TIMELINE_PROVIDER"
+        tools:ignore="ProtectedPermissions" />
     <!-- Lets the app register its own "ok glass" voice command. -->
     <uses-permission android:name="com.google.android.glass.permission.DEVELOPMENT" />
 
@@ -58,9 +65,27 @@
                 android:resource="@xml/voice_trigger_weather" />
         </activity-alias>
 
+        <!--
+        Also the hub that add-on Glass apps bind to (see hub-api). Only apps signed with
+        the GlassLink key hold the permission.
+        -->
         <service
             android:name=".LinkService"
-            android:exported="false" />
+            android:exported="true"
+            android:permission="dev.glassrevival.permission.HUB">
+            <intent-filter>
+                <action android:name="dev.glassrevival.hub.action.BIND" />
+            </intent-filter>
+        </service>
+
+        <!-- "Reply" on a GlassLink card in the Glass timeline; sent by the home screen. -->
+        <receiver
+            android:name=".TimelineMenuReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="dev.glassrevival.glass.action.TIMELINE_REPLY" />
+            </intent-filter>
+        </receiver>
 
         <receiver
             android:name=".BootReceiver"

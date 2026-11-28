@@ -79,6 +79,13 @@ final class LinkManager {
         sinks.add(sink);
     }
 
+    /** Receives frames for add-on apps (any frame with a channel). */
+    private volatile MessageSink channelSink;
+
+    void setChannelSink(MessageSink sink) {
+        channelSink = sink;
+    }
+
     private final Context context;
     private final Prefs prefs;
     private final CopyOnWriteArrayList<Listener> listeners = new CopyOnWriteArrayList<>();
@@ -307,6 +314,11 @@ final class LinkManager {
     }
 
     private void handle(JSONObject msg) {
+        if (msg.has(Protocol.F_CHANNEL)) {
+            MessageSink s = channelSink;
+            if (s != null) s.onMessage(msg);
+            return;
+        }
         String type = msg.optString(Protocol.F_TYPE);
         if (type.startsWith(Protocol.MEDIA_PREFIX)) {
             for (MessageSink s : sinks) s.onMessage(msg);

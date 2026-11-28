@@ -262,6 +262,11 @@
                     style="@style/SwitchRow"
                     android:text="Play sound" />
                 <View style="@style/Divider" />
+                <Switch
+                    android:id="@+id/opt_timeline"
+                    style="@style/SwitchRow"
+                    android:text="Show in the Glass timeline (needs a system install on Glass)" />
+                <View style="@style/Divider" />
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"

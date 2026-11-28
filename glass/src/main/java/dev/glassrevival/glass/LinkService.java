@@ -22,6 +22,9 @@ import android.os.Looper;
 import android.os.PowerManager;
 import android.util.Base64;
 import android.util.Log;
+import dev.glassrevival.glass.timeline.NativeTimeline;
+import dev.glassrevival.hub.Hub;
+import dev.glassrevival.hub.HubHost;
 import dev.glassrevival.protocol.FrameIO;
 import dev.glassrevival.protocol.Protocol;
 import java.io.Closeable;
@@ -114,6 +117,7 @@ public class LinkService extends Service {
     static final String PREF_WAKE = "alert_wake";
     static final String PREF_SOUND = "alert_sound";
     static final String PREF_ALERT_SECONDS = "alert_seconds";
+    static final String PREF_TIMELINE = "use_timeline";
 
     /** How long an alert card stays up before closing itself. */
     static long alertTimeoutMs(Context context) {
@@ -124,6 +128,9 @@ public class LinkService extends Service {
     private final NotificationStore store = NotificationStore.get();
     private MediaServer mediaServer;
     private MediaHandler media;
+    private HubHost hub;
+    /** Glass's own timeline. Null unless GlassLink is installed as a system app. */
+    private NativeTimeline timeline;
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService sender = Executors.newSingleThreadExecutor();
 
@@ -157,6 +164,30 @@ public class LinkService extends Service {
         MediaLibrary library = new MediaLibrary(getContentResolver());
         mediaServer = new MediaServer(this, library);
         media = new MediaHandler(library, mediaServer);
+        hub = new HubHost(this, new HubHost.Link() {
+            @Override
+            public boolean isConnected() {
+                return addOnSession() != null;
+            }
+
+            @Override
+            public boolean send(JSONObject frame) {
+                Session s = addOnSession();
+                if (s == null) return false;
+                s.send(frame);
+                return true;
+            }
+        });
+        if (NativeTimeline.isAvailable(this)) {
+            timeline = new NativeTimeline(this, key -> {
+                // Deleted from the Glass timeline: same as dismissing it in GlassLink.
+                store.remove(key);
+                sendDismiss(key);
+            });
+            timeline.start();
+            timeline.clearAll(); // leftovers from before; the phone resends on connect
+            Log.i(TAG, "Glass timeline is available");
+        }
         running = true;
         acceptThread = new Thread(this::acceptLoop, "GlassLink-accept");
         acceptThread.start();
@@ -172,6 +203,8 @@ public class LinkService extends Service {
     public void onDestroy() {
         running = false;
         instance = null;
+        hub.setConnected(false);
+        if (timeline != null) timeline.stop();
         closeQuietly(server);
         synchronized (this) {
             if (session != null) session.close();
@@ -186,7 +219,10 @@ public class LinkService extends Service {
 
     @Override
     public IBinder onBind(Intent intent) {
-        return null;
+        if (!Hub.ACTION_BIND.equals(intent.getAction())) return null;
+        // An add-on app bound first. Start the service too, so it keeps running after they unbind.
+        start(this);
+        return hub.binder();
     }
 
     // ---- Accepting connections ------------------------------------------------------------
@@ -251,11 +287,17 @@ public class LinkService extends Service {
         return true;
     }
 
+    /** The current session, once it may carry add-on traffic (after welcome went out). */
+    private synchronized Session addOnSession() {
+        return session != null && session.welcomed ? session : null;
+    }
+
     private void onSessionEnded(Session s) {
         synchronized (this) {
             if (session != s) return;
             session = null;
         }
+        hub.setConnected(false);
         store.setLink(adapter != null && adapter.isEnabled()
                 ? NotificationStore.LinkState.WAITING
                 : NotificationStore.LinkState.BLUETOOTH_OFF, null);
@@ -265,6 +307,8 @@ public class LinkService extends Service {
         private final BluetoothSocket socket;
         private OutputStream out;
         volatile boolean authed;
+        /** Set once welcome is queued. Add-on frames wait for it, so welcome stays first. */
+        volatile boolean welcomed;
         private volatile long lastReceived = android.os.SystemClock.elapsedRealtime();
         private final Runnable idleCheck = new Runnable() {
             @Override
@@ -335,6 +379,7 @@ public class LinkService extends Service {
             Log.i(TAG, "Paired with " + peer);
             // The phone resends everything that is still active, so start clean.
             store.clear();
+            if (timeline != null) timeline.clearAll();
             store.setLink(NotificationStore.LinkState.CONNECTED, peer);
 
             JSONObject welcome = new JSONObject();
@@ -344,6 +389,8 @@ public class LinkService extends Service {
             welcome.put(Protocol.F_BATTERY, batteryPercent);
             welcome.put(Protocol.F_CHARGING, charging);
             send(welcome);
+            welcomed = true;
+            hub.setConnected(true);
             return true;
         }
 
@@ -356,6 +403,10 @@ public class LinkService extends Service {
         }
 
         private void handle(JSONObject msg) throws JSONException {
+            if (msg.has(Protocol.F_CHANNEL)) {
+                hub.deliver(msg); // for an add-on Glass app
+                return;
+            }
             String type = msg.optString(Protocol.F_TYPE);
             if (Protocol.NOTIFY.equals(type)) {
                 NotificationStore.Note note = new NotificationStore.Note(
@@ -370,9 +421,21 @@ public class LinkService extends Service {
                         stringList(msg.optJSONArray(Protocol.F_CHOICES)));
                 boolean alert = msg.optBoolean(Protocol.F_ALERT, false);
                 store.upsert(note, alert);
-                if (alert) alertUser(note);
+                if (useTimeline()) {
+                    android.content.SharedPreferences prefs = getSharedPreferences("glasslink", MODE_PRIVATE);
+                    // Glass's home screen does the chime and the wake for timeline cards.
+                    boolean notify = alert && (prefs.getBoolean(PREF_WAKE, true) || prefs.getBoolean(PREF_SOUND, true));
+                    timeline.post(new NativeTimeline.Card(note.key, note.pkg, note.app, note.title,
+                            note.text, note.when, note.canReply,
+                            msg.optString(Protocol.F_ICON, null),
+                            msg.optString(Protocol.F_AVATAR, null)), notify);
+                } else if (alert) {
+                    alertUser(note);
+                }
             } else if (Protocol.REMOVE.equals(type)) {
-                store.remove(msg.getString(Protocol.F_KEY));
+                String key = msg.getString(Protocol.F_KEY);
+                store.remove(key);
+                if (timeline != null) timeline.remove(key);
             } else if (type.startsWith(Protocol.MEDIA_PREFIX)) {
                 media.handle(this, msg);
             } else if (Protocol.SETTINGS.equals(type)) {
@@ -380,7 +443,10 @@ public class LinkService extends Service {
                         .putBoolean(PREF_WAKE, msg.optBoolean(Protocol.F_WAKE, true))
                         .putBoolean(PREF_SOUND, msg.optBoolean(Protocol.F_SOUND, true))
                         .putInt(PREF_ALERT_SECONDS, msg.optInt(Protocol.F_ALERT_SECONDS, 10))
+                        .putBoolean(PREF_TIMELINE, msg.optBoolean(Protocol.F_TIMELINE, true))
                         .apply();
+                // Turned off: take our cards back out. Turned on: the phone reconnects to resend.
+                if (timeline != null && !msg.optBoolean(Protocol.F_TIMELINE, true)) timeline.clearAll();
                 Log.i(TAG, "Alert settings updated: " + msg);
             } else if (Protocol.METAR.equals(type)) {
                 String json = msg.toString();
@@ -445,6 +511,12 @@ public class LinkService extends Service {
     }
 
     // ---- Alerts ---------------------------------------------------------------------------
+
+    /** True when notifications go to Glass's own timeline instead of GlassLink's pop-up. */
+    private boolean useTimeline() {
+        return timeline != null
+                && getSharedPreferences("glasslink", MODE_PRIVATE).getBoolean(PREF_TIMELINE, true);
+    }
 
     private void alertUser(final NotificationStore.Note note) {
         main.post(() -> {

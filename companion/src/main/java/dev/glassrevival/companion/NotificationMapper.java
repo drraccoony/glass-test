@@ -36,6 +36,8 @@ import org.json.JSONObject;
 final class NotificationMapper {
 
     private static final int ICON_PX = 48;
+    /** Glass shows the avatar as a 64 px circle. */
+    private static final int AVATAR_PX = 64;
     private static final int MAX_TEXT = 1200;
     private static final int MAX_MESSAGES = 4;
 
@@ -130,10 +132,20 @@ final class NotificationMapper {
             }
         }
 
-        String title = firstNonEmpty(
-                extras.getCharSequence(Notification.EXTRA_TITLE_BIG),
-                extras.getCharSequence(Notification.EXTRA_TITLE),
-                extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE));
+        // Group chats title themselves "Group: latest sender"; each line already names its
+        // sender, so use just the group name.
+        String conversation = firstNonEmpty(extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE));
+        String plainTitle = firstNonEmpty(extras.getCharSequence(Notification.EXTRA_TITLE));
+        // Not every app sets the group flag, so also spot the "Group: sender" pattern.
+        boolean group = extras.getBoolean(Notification.EXTRA_IS_GROUP_CONVERSATION, false)
+                || (!conversation.isEmpty() && plainTitle.startsWith(conversation + ": "));
+        String title = group ? conversation : "";
+        if (title.isEmpty()) {
+            title = firstNonEmpty(
+                    extras.getCharSequence(Notification.EXTRA_TITLE_BIG),
+                    extras.getCharSequence(Notification.EXTRA_TITLE),
+                    extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE));
+        }
         String text = bodyOf(n, extras);
         if (title.isEmpty() && text.isEmpty()) return null;
         if (text.length() > MAX_TEXT) text = text.substring(0, MAX_TEXT - 1) + "…";
@@ -167,6 +179,8 @@ final class NotificationMapper {
             msg.put(Protocol.F_ALERT, alert);
             String icon = iconFor(pkg);
             if (icon != null) msg.put(Protocol.F_ICON, icon);
+            String avatar = avatarFor(n);
+            if (avatar != null) msg.put(Protocol.F_AVATAR, avatar);
             if (target != null) {
                 // canReply means free text (voice) works; choices may exist either way.
                 msg.put(Protocol.F_CAN_REPLY, target.freeForm);
@@ -252,6 +266,17 @@ final class NotificationMapper {
         return list.size() > Protocol.MAX_CHOICES ? list.subList(0, Protocol.MAX_CHOICES) : list;
     }
 
+    /** The notification's own picture (large icon), usually the sender's photo. */
+    private String avatarFor(Notification n) {
+        try {
+            android.graphics.drawable.Icon large = n.getLargeIcon();
+            if (large == null) return null;
+            return encodeIcon(large.loadDrawable(context), AVATAR_PX);
+        } catch (RuntimeException e) {
+            return null; // e.g. a content URI we may not read
+        }
+    }
+
     synchronized String iconFor(String pkg) {
         if (iconCache.containsKey(pkg)) return iconCache.get(pkg);
         String encoded = null;
@@ -324,10 +349,14 @@ final class NotificationMapper {
     }
 
     static String encodeIcon(Drawable drawable) {
+        return encodeIcon(drawable, ICON_PX);
+    }
+
+    static String encodeIcon(Drawable drawable, int px) {
         if (drawable == null) return null;
-        Bitmap bitmap = Bitmap.createBitmap(ICON_PX, ICON_PX, Bitmap.Config.ARGB_8888);
+        Bitmap bitmap = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
-        drawable.setBounds(0, 0, ICON_PX, ICON_PX);
+        drawable.setBounds(0, 0, px, px);
         drawable.draw(canvas);
         ByteArrayOutputStream png = new ByteArrayOutputStream();
         bitmap.compress(Bitmap.CompressFormat.PNG, 100, png);

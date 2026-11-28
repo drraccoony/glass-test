@@ -31,7 +31,8 @@ final class GlassSettings implements LinkManager.GlassHook {
                     .put(Protocol.F_TYPE, Protocol.SETTINGS)
                     .put(Protocol.F_WAKE, prefs.wakeGlass())
                     .put(Protocol.F_SOUND, prefs.playSound())
-                    .put(Protocol.F_ALERT_SECONDS, prefs.alertSeconds()));
+                    .put(Protocol.F_ALERT_SECONDS, prefs.alertSeconds())
+                    .put(Protocol.F_TIMELINE, prefs.useTimeline()));
         } catch (JSONException ignored) {
             // cannot happen
         }

@@ -28,7 +28,7 @@ serial_for() {
     local want="$1" serial model
     while read -r serial state _; do
         [[ "$state" == "device" ]] || continue
-        model="$("$ADB" -s "$serial" shell getprop ro.product.model 2>/dev/null | tr -d '\r')"
+        model="$("$ADB" -s "$serial" shell getprop ro.product.model </dev/null 2>/dev/null | tr -d '\r')"
         if [[ "$want" == glass && "$model" == *Glass* ]]; then echo "$serial"; return 0; fi
         if [[ "$want" == phone && "$model" != *Glass* ]]; then echo "$serial"; return 0; fi
     done < <("$ADB" devices | tail -n +2)
@@ -109,6 +109,76 @@ cmd_install_phone() {
     say "GlassLink is open on your phone"
 }
 
+SYSTEM_APK="/system/priv-app/GlassLink.apk"
+
+# Waits for a device to come back after a reboot and finish booting.
+wait_for_boot() {
+    local serial="$1" i
+    "$ADB" -s "$serial" wait-for-device
+    for i in $(seq 1 90); do
+        [[ "$("$ADB" -s "$serial" shell getprop sys.boot_completed </dev/null 2>/dev/null | tr -d '\r')" == 1 ]] && return 0
+        sleep 2
+    done
+    die "Glass didn't finish booting. Check it, then run: $0 start"
+}
+
+# Installs GlassLink in /system/priv-app so it may write to Glass's own timeline.
+# XE24 debug mode gives adb root, so this needs no other tools. Settings (pair code)
+# are kept. Later updates can use install-glass as usual; Glass keeps the system grant.
+cmd_install_glass_system() {
+    need_adb
+    local apk serial
+    apk="$(pick_apk "${1:-}" glass/build/outputs/apk/debug/glass-debug.apk glass-debug.apk)"
+    serial="$(glass_serial)"
+    local sh=("$ADB" -s "$serial" shell)
+    [[ "$("${sh[@]}" id </dev/null | tr -d '\r')" == uid=0* ]] || die "adb on Glass isn't root. Is debug mode on?"
+
+    say "Saving GlassLink settings"
+    "${sh[@]}" "rm -rf /data/local/tmp/glasslink-prefs; cp -r /data/data/$GLASS_PKG/shared_prefs /data/local/tmp/glasslink-prefs 2>/dev/null" </dev/null || true
+
+    if "${sh[@]}" pm path "$GLASS_PKG" </dev/null | grep -q "/data/app"; then
+        say "Removing the regular install"
+        "${sh[@]}" pm uninstall "$GLASS_PKG" </dev/null >/dev/null
+    fi
+
+    say "Copying $(basename "$apk") to $SYSTEM_APK"
+    "$ADB" -s "$serial" push "$apk" /data/local/tmp/GlassLink.apk >/dev/null
+    "${sh[@]}" "mount -o rw,remount /system && cp /data/local/tmp/GlassLink.apk $SYSTEM_APK && chmod 644 $SYSTEM_APK && chown root:root $SYSTEM_APK; rc=\$?; rm /data/local/tmp/GlassLink.apk; mount -o ro,remount /system; exit \$rc" </dev/null \
+        || die "Couldn't write to /system"
+
+    say "Rebooting Glass so it picks up the system app"
+    "$ADB" -s "$serial" reboot
+    wait_for_boot "$serial"
+
+    say "Restoring settings"
+    # The app's new user id. Glass's busybox stat has no -c, so ask the package manager.
+    local uid
+    uid="$("${sh[@]}" dumpsys package "$GLASS_PKG" </dev/null | sed -n 's/.*userId=\([0-9]*\).*/\1/p' | head -1)"
+    [[ -n "$uid" ]] || die "Couldn't find GlassLink's user id. Settings are saved in /data/local/tmp/glasslink-prefs"
+    local prefs="/data/data/$GLASS_PKG/shared_prefs"
+    "${sh[@]}" "if [ -d /data/local/tmp/glasslink-prefs ]; then am force-stop $GLASS_PKG && mkdir -p $prefs && cp /data/local/tmp/glasslink-prefs/* $prefs/ && chown $uid:$uid $prefs $prefs/* && chmod 771 $prefs && chmod 660 $prefs/* && rm -rf /data/local/tmp/glasslink-prefs; fi" </dev/null \
+        || warn "Couldn't restore settings. They are saved in /data/local/tmp/glasslink-prefs on Glass"
+
+    if "${sh[@]}" dumpsys package "$GLASS_PKG" </dev/null | grep -q "com.google.glass.sync.permission.TIMELINE_PROVIDER"; then
+        say "GlassLink can now write to the Glass timeline"
+    else
+        warn "Glass didn't grant the timeline permission. Check: adb shell dumpsys package $GLASS_PKG"
+    fi
+    cmd_start
+}
+
+# Puts GlassLink back to a regular install.
+cmd_uninstall_glass_system() {
+    need_adb
+    local serial
+    serial="$(glass_serial)"
+    say "Removing $SYSTEM_APK"
+    "$ADB" -s "$serial" shell "mount -o rw,remount /system && rm -f $SYSTEM_APK; mount -o ro,remount /system" </dev/null
+    "$ADB" -s "$serial" reboot
+    wait_for_boot "$serial"
+    say "Done. Install the regular app again with: $0 install-glass"
+}
+
 cmd_start() {
     need_adb
     local serial
@@ -148,6 +218,11 @@ Usage: $0 <command>
   devices               List connected devices
   install-glass [apk]   Install the Glass app and open it
   install-phone [apk]   Install the phone companion and open it
+  install-glass-system [apk]
+                        Install the Glass app as a system app, so notifications
+                        can go into Glass's own timeline (reboots Glass)
+  uninstall-glass-system
+                        Remove the system copy again (reboots Glass)
   start                 Open GlassLink on Glass and print the pairing info
   info                  Print the Glass Bluetooth address and pair code
   logs [glass|phone]    Follow GlassLink logs
@@ -162,6 +237,8 @@ case "${1:-}" in
     devices) cmd_devices ;;
     install-glass) shift; cmd_install_glass "${1:-}" ;;
     install-phone) shift; cmd_install_phone "${1:-}" ;;
+    install-glass-system) shift; cmd_install_glass_system "${1:-}" ;;
+    uninstall-glass-system) cmd_uninstall_glass_system ;;
     start) cmd_start ;;
     info) cmd_info ;;
     logs) shift; cmd_logs "${1:-glass}" ;;

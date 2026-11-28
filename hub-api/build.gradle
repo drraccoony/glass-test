@@ -1,0 +1,29 @@
+// The GlassLink hub: lets other apps on Glass or the phone share the one Bluetooth
+// link. The GlassLink Glass app and the phone companion host it (HubHost); add-on apps
+// connect with HubClient or receive messages through a HubReceiver.
+plugins {
+    id 'com.android.library'
+}
+
+android {
+    namespace 'dev.glassrevival.hub'
+    compileSdk 35
+
+    defaultConfig {
+        // Glass Explorer Edition runs Android 4.4 (API 19).
+        minSdk 19
+    }
+
+    buildFeatures {
+        aidl = true
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+
+dependencies {
+    implementation project(':protocol')
+}
