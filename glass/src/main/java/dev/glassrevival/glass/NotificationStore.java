@@ -61,7 +61,6 @@ final class NotificationStore {
     private LinkState linkState = LinkState.WAITING;
     private String peerName;
     private Weather weather;
-    private Metar metar;
 
     private NotificationStore() {}
 
@@ -119,18 +118,6 @@ final class NotificationStore {
             weather = w;
             fire();
         });
-    }
-
-    void setMetar(final Metar m) {
-        main.post(() -> {
-            metar = m;
-            fire();
-        });
-    }
-
-    /** Main thread only. */
-    Metar metar() {
-        return metar;
     }
 
     /** Main thread only. */

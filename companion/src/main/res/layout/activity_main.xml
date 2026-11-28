@@ -552,7 +552,7 @@
                 style="@style/Hint"
                 android:layout_marginStart="4dp"
                 android:layout_marginTop="16dp"
-                android:text="Each airport gets its own card on Glass, after the weather card, showing the raw METAR and its flight category. Reports come from aviationweather.gov." />
+                android:text="Each airport gets its own card in the Airports app on Glass (say &quot;ok glass, show airports&quot;), showing the raw METAR and its flight category. Install it with glasslink.sh install-airports. Reports come from aviationweather.gov." />
             </LinearLayout>
         </ScrollView>
     </FrameLayout>

@@ -18,9 +18,20 @@ import org.json.JSONObject;
 
 /**
  * Fetches METARs for the user's airports from aviationweather.gov (NOAA, free, no key)
- * and sends them to Glass, which shows one card per airport.
+ * and sends them on the hub channel {@link #CHANNEL} to the Airports app on Glass, which
+ * shows one card per airport.
+ *
+ * <pre>
+ * phone -> glass  metar    {updated, stations: [{id, name, raw, observed, cat}]}
+ *                          an empty list means METARs are off
+ * glass -> phone  sync     {}    send what you have, and fetch if it's old
+ * glass -> phone  refresh  {}    fetch now
+ * </pre>
  */
 final class MetarProvider implements LinkManager.GlassHook {
+
+    static final String CHANNEL = "dev.glassrevival.metar";
+    private static final String TYPE = "metar";
 
     private static final String TAG = "GlassLink";
     /** METARs come out hourly, with specials in between. */
@@ -51,7 +62,20 @@ final class MetarProvider implements LinkManager.GlassHook {
 
     @Override
     public void onGlassRequest(String type) {
-        if (Protocol.METAR_REQUEST.equals(type)) exec.execute(() -> refresh(true));
+        // Requests come on the channel instead.
+    }
+
+    /** A frame from the Airports app on Glass. */
+    void onGlassMessage(JSONObject msg) {
+        String type = msg.optString(Protocol.F_TYPE);
+        if ("sync".equals(type)) {
+            exec.execute(() -> {
+                sendCached();
+                refresh(false);
+            });
+        } else if ("refresh".equals(type)) {
+            exec.execute(() -> refresh(true));
+        }
     }
 
     /** The switch or the airport list changed. */
@@ -68,21 +92,30 @@ final class MetarProvider implements LinkManager.GlassHook {
         String json = prefs.metarJson();
         if (json == null) return;
         try {
-            link.send(new JSONObject(json));
+            send(new JSONObject(json));
         } catch (JSONException ignored) {
             // replaced by the next fetch
         }
     }
 
-    /** Tells Glass to remove its METAR cards. */
+    /** Tells Glass that METARs are off. */
     private void sendEmpty() {
         try {
-            link.send(new JSONObject().put(Protocol.F_TYPE, Protocol.METAR)
+            send(new JSONObject().put(Protocol.F_TYPE, TYPE)
                     .put(Protocol.F_UPDATED, System.currentTimeMillis())
-                    .put(Protocol.F_STATIONS, new JSONArray()));
+                    .put("stations", new JSONArray()));
         } catch (JSONException ignored) {
             // cannot happen
         }
+    }
+
+    private void send(JSONObject msg) {
+        try {
+            msg.put(Protocol.F_CHANNEL, CHANNEL);
+        } catch (JSONException ignored) {
+            // cannot happen
+        }
+        link.send(msg);
     }
 
     private void refresh(boolean force) {
@@ -103,7 +136,7 @@ final class MetarProvider implements LinkManager.GlassHook {
             prefs.setMetar(msg.toString(), System.currentTimeMillis());
             prefs.setMetarStatus("Updated " + DateFormat.getTimeFormat(context)
                     .format(Calendar.getInstance().getTime()));
-            link.send(msg);
+            send(msg);
         } catch (IOException | JSONException e) {
             Log.w(TAG, "METAR fetch failed", e);
             prefs.setMetarStatus("Couldn't reach aviationweather.gov");
@@ -126,24 +159,24 @@ final class MetarProvider implements LinkManager.GlassHook {
         for (String id : ids) { // keep the user's order
             JSONObject r = byId.get(id);
             JSONObject s = new JSONObject();
-            s.put(Protocol.F_ID, id);
+            s.put("id", id);
             if (r == null) {
-                s.put(Protocol.F_NAME, "");
-                s.put(Protocol.F_RAW, "No recent METAR for " + id);
-                s.put(Protocol.F_OBSERVED, 0);
-                s.put(Protocol.F_CATEGORY, "");
+                s.put("name", "");
+                s.put("raw", "No recent METAR for " + id);
+                s.put("observed", 0);
+                s.put("cat", "");
             } else {
-                s.put(Protocol.F_NAME, shortName(r.optString("name", "")));
-                s.put(Protocol.F_RAW, r.optString("rawOb", ""));
-                s.put(Protocol.F_OBSERVED, r.optLong("obsTime", 0) * 1000L);
-                s.put(Protocol.F_CATEGORY, r.optString("fltCat", ""));
+                s.put("name", shortName(r.optString("name", "")));
+                s.put("raw", r.optString("rawOb", ""));
+                s.put("observed", r.optLong("obsTime", 0) * 1000L);
+                s.put("cat", r.optString("fltCat", ""));
             }
             stations.put(s);
         }
         JSONObject msg = new JSONObject();
-        msg.put(Protocol.F_TYPE, Protocol.METAR);
+        msg.put(Protocol.F_TYPE, TYPE);
         msg.put(Protocol.F_UPDATED, System.currentTimeMillis());
-        msg.put(Protocol.F_STATIONS, stations);
+        msg.put("stations", stations);
         return msg;
     }
 

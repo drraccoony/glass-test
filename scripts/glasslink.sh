@@ -120,6 +120,16 @@ cmd_install_recipes() {
     say "On your phone, share a recipe page and choose Send to Glass"
 }
 
+cmd_install_airports() {
+    need_adb
+    local apk serial
+    apk="$(pick_apk "${1:-}" airports-glass/build/outputs/apk/debug/airports-glass-debug.apk airports-glass-debug.apk)"
+    serial="$(glass_serial)"
+    say "Installing $(basename "$apk") on Glass ($serial)"
+    "$ADB" -s "$serial" install -r "$apk"
+    say "Pick airports in GlassLink on your phone (Airports tab), then say \"ok glass, show airports\""
+}
+
 cmd_install_phone() {
     need_adb
     local apk serial
@@ -253,6 +263,7 @@ Usage: $0 <command>
   install-phone [apk]   Install the phone companion and open it
   install-nav [apk]     Install GlassLink Navigation on Glass (turn-by-turn from Maps)
   install-recipes [apk] Install Recipes on Glass (recipes and instructions from the phone)
+  install-airports [apk] Install Airports on Glass (METARs for your airports)
   install-glass-system [apk]
                         Install the Glass app as a system app, so notifications
                         can go into Glass's own timeline (reboots Glass)
@@ -274,6 +285,7 @@ case "${1:-}" in
     install-phone) shift; cmd_install_phone "${1:-}" ;;
     install-nav) shift; cmd_install_nav "${1:-}" ;;
     install-recipes) shift; cmd_install_recipes "${1:-}" ;;
+    install-airports) shift; cmd_install_airports "${1:-}" ;;
     install-glass-system) shift; cmd_install_glass_system "${1:-}" ;;
     uninstall-glass-system) cmd_uninstall_glass_system ;;
     start) cmd_start ;;

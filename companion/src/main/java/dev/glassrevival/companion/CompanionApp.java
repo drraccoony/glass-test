@@ -47,8 +47,11 @@ public class CompanionApp extends Application {
         link.addHook(nav);
         // Channels the companion serves itself; everything else goes to add-on apps.
         link.setChannelSink(msg -> {
-            if (NavProvider.CHANNEL.equals(msg.optString(dev.glassrevival.protocol.Protocol.F_CHANNEL))) {
+            String channel = msg.optString(dev.glassrevival.protocol.Protocol.F_CHANNEL);
+            if (NavProvider.CHANNEL.equals(channel)) {
                 nav.onGlassMessage(msg);
+            } else if (MetarProvider.CHANNEL.equals(channel)) {
+                metar.onGlassMessage(msg);
             } else {
                 hub.deliver(msg);
             }

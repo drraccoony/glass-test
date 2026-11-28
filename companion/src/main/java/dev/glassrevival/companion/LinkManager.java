@@ -58,7 +58,7 @@ final class LinkManager {
         String onGlassReply(String key, String text);
     }
 
-    /** Data sources (weather, METARs), told when Glass connects or asks for an update. */
+    /** Data sources (weather, METARs, ...), told when Glass connects or asks for an update. */
     interface GlassHook {
         void onGlassConnected();
 
@@ -350,7 +350,7 @@ final class LinkManager {
             } catch (JSONException ignored) {
                 // cannot happen
             }
-        } else if (Protocol.WEATHER_REQUEST.equals(type) || Protocol.METAR_REQUEST.equals(type)) {
+        } else if (Protocol.WEATHER_REQUEST.equals(type)) {
             for (GlassHook h : hooks) h.onGlassRequest(type);
         } else if (Protocol.STATUS.equals(type)) {
             glassBattery = msg.optInt(Protocol.F_BATTERY, glassBattery);

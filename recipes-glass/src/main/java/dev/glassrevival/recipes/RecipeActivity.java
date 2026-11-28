@@ -24,9 +24,9 @@ import java.util.Locale;
 
 /**
  * Steps through the current recipe: a title card, ingredients, then one card per step.
- * The screen stays on. Swipe to move, tap for the menu, or say "ok glass" then "next
- * step", "previous step", "show ingredients", "read aloud", or "start a timer" when the
- * step mentions a time.
+ * The screen stays on. Swipe to move, tap for the menu, or say "ok glass" then "go
+ * forward", "go back", "show instructions", "show ingredients", "read aloud", "start a
+ * timer" (when the step mentions a time), "stop the timer" or "stop this".
  */
 public class RecipeActivity extends Activity implements StepTimer.Listener {
 
@@ -40,7 +40,7 @@ public class RecipeActivity extends Activity implements StepTimer.Listener {
      */
     private static final int MAX_STEP_CHARS = 170;
     private static final int MENU_NEXT = 1, MENU_PREVIOUS = 2, MENU_INGREDIENTS = 3, MENU_READ = 4,
-            MENU_TIMER = 5, MENU_STOP_TIMER = 6, MENU_CLOSE = 7;
+            MENU_TIMER = 5, MENU_STOP_TIMER = 6, MENU_CLOSE = 7, MENU_STEPS = 8;
 
     /** One card. kind decides how it's drawn. */
     private static final class Card {
@@ -329,13 +329,15 @@ public class RecipeActivity extends Activity implements StepTimer.Listener {
     private void fillMenu(Menu menu, boolean voice) {
         if (voice) {
             // Fixed list; commands that don't apply to the current card just play "disallowed".
-            menu.add(Menu.NONE, MENU_NEXT, 0, R.string.cmd_next);
-            menu.add(Menu.NONE, MENU_PREVIOUS, 1, R.string.cmd_previous);
-            menu.add(Menu.NONE, MENU_TIMER, 2, R.string.cmd_timer);
-            menu.add(Menu.NONE, MENU_STOP_TIMER, 3, R.string.cmd_stop_timer);
-            menu.add(Menu.NONE, MENU_READ, 4, R.string.cmd_read);
-            menu.add(Menu.NONE, MENU_INGREDIENTS, 5, R.string.cmd_ingredients);
-            menu.add(Menu.NONE, MENU_CLOSE, 6, R.string.cmd_close);
+            // Only Glass's built-in phrases work offline; see voice_* in strings.xml.
+            menu.add(Menu.NONE, MENU_NEXT, 0, R.string.voice_next);
+            menu.add(Menu.NONE, MENU_PREVIOUS, 1, R.string.voice_previous);
+            menu.add(Menu.NONE, MENU_STEPS, 2, R.string.voice_steps);
+            menu.add(Menu.NONE, MENU_INGREDIENTS, 3, R.string.voice_ingredients);
+            menu.add(Menu.NONE, MENU_TIMER, 4, R.string.voice_timer);
+            menu.add(Menu.NONE, MENU_STOP_TIMER, 5, R.string.voice_stop_timer);
+            menu.add(Menu.NONE, MENU_READ, 6, R.string.voice_read);
+            menu.add(Menu.NONE, MENU_CLOSE, 7, R.string.voice_close);
             return;
         }
         if (recipe == null) {
@@ -372,6 +374,9 @@ public class RecipeActivity extends Activity implements StepTimer.Listener {
                 break;
             case MENU_INGREDIENTS:
                 go(firstIngredients); // -1 when there are none: disallowed sound
+                break;
+            case MENU_STEPS:
+                go(recipe == null ? -1 : firstStep);
                 break;
             case MENU_READ:
                 readAloud();

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Airports</string>
+    <string name="voice_trigger">show airports</string>
+    <string name="no_airports">No airports yet</string>
+    <string name="no_airports_hint">On your phone, open GlassLink, go to Airports and enter some airport codes.</string>
+    <string name="metar_off">METARs are off on your phone</string>
+</resources>

@@ -101,19 +101,9 @@ public class LinkService extends Service {
         }
     }
 
-    /** Asks the phone for fresh METARs. */
-    static boolean requestMetar() {
-        LinkService svc = instance;
-        if (svc == null) return false;
-        try {
-            return svc.sendToPeer(new JSONObject().put(Protocol.F_TYPE, Protocol.METAR_REQUEST));
-        } catch (JSONException e) {
-            return false;
-        }
-    }
-
     private static final String WEATHER_PREF = "last_weather";
-    private static final String METAR_PREF = "last_metar";
+    /** METARs moved to the Airports app; drop what older versions saved. */
+    private static final String OLD_METAR_PREF = "last_metar";
     static final String PREF_WAKE = "alert_wake";
     static final String PREF_SOUND = "alert_sound";
     static final String PREF_ALERT_SECONDS = "alert_seconds";
@@ -160,9 +150,7 @@ public class LinkService extends Service {
         Weather saved = Weather.parse(getSharedPreferences("glasslink", MODE_PRIVATE)
                 .getString(WEATHER_PREF, null));
         if (saved != null) store.setWeather(saved);
-        Metar savedMetar = Metar.parse(getSharedPreferences("glasslink", MODE_PRIVATE)
-                .getString(METAR_PREF, null));
-        if (savedMetar != null) store.setMetar(savedMetar);
+        getSharedPreferences("glasslink", MODE_PRIVATE).edit().remove(OLD_METAR_PREF).apply();
         MediaLibrary library = new MediaLibrary(getContentResolver());
         mediaServer = new MediaServer(this, library);
         media = new MediaHandler(library, mediaServer);
@@ -455,14 +443,6 @@ public class LinkService extends Service {
                 // Turned off: take our cards back out. Turned on: the phone reconnects to resend.
                 if (timeline != null && !msg.optBoolean(Protocol.F_TIMELINE, true)) timeline.clearAll();
                 Log.i(TAG, "Alert settings updated: " + msg);
-            } else if (Protocol.METAR.equals(type)) {
-                String json = msg.toString();
-                Metar m = Metar.parse(json);
-                if (m != null) {
-                    store.setMetar(m);
-                    getSharedPreferences("glasslink", MODE_PRIVATE).edit()
-                            .putString(METAR_PREF, json).apply();
-                }
             } else if (Protocol.CAST_ACK.equals(type)) {
                 caster.ack(msg.optInt(Protocol.F_SEQ));
             } else if (Protocol.CAST_START.equals(type)) {

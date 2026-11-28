@@ -1,0 +1,52 @@
+// Airports: METARs for the airports picked on the phone, one card each. A separate app
+// that gets them through the GlassLink hub (channel dev.glassrevival.metar).
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'dev.glassrevival.airports'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'dev.glassrevival.airports'
+        minSdk 19
+        //noinspection ExpiredTargetSdkVersion
+        targetSdk 19
+        versionCode 1
+        versionName '0.1.0'
+    }
+
+    signingConfigs {
+        // Must match GlassLink's key: the hub only lets apps signed with it connect.
+        dev {
+            storeFile rootProject.file('keystore/glasslink-dev.jks')
+            storePassword 'glasslink'
+            keyAlias 'glasslink'
+            keyPassword 'glasslink'
+        }
+    }
+
+    buildTypes {
+        debug { signingConfig signingConfigs.dev }
+        release {
+            signingConfig signingConfigs.dev
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    lint {
+        abortOnError false
+        disable 'ExpiredTargetSdkVersion', 'OldTargetApi'
+    }
+}
+
+dependencies {
+    implementation project(':hub-api')
+    compileOnly project(':gdk-stubs')
+}

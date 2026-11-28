@@ -13,9 +13,6 @@ package dev.glassrevival.protocol;
  * phone -> glass   location {lat, lon, acc, age, alt?, speed?, bearing?}
  *                    the phone's position (Glass has no GPS). acc in metres, age = ms
  *                    since the fix, speed m/s, bearing degrees
- * phone -> glass   metar   {updated, stations: [{id, name, raw, observed, cat}]}
- *                            an empty list removes the METAR cards
- * glass -> phone   metar_request                     user asked for fresh METARs
  * phone -> glass   settings {wake, sound, alertSeconds, timeline}  how Glass should alert.
  *                    timeline=true also puts notifications in Glass's own timeline
  *                    (needs GlassLink installed as a system app on Glass)
@@ -91,8 +88,6 @@ public final class Protocol {
     public static final String WEATHER = "weather";
     public static final String CLOCK = "clock";
     public static final String LOCATION = "location";
-    public static final String METAR = "metar";
-    public static final String METAR_REQUEST = "metar_request";
     public static final String SETTINGS = "settings";
     public static final String MEDIA_LIST = "media_list";
     public static final String MEDIA_ITEMS = "media_items";
@@ -195,13 +190,7 @@ public final class Protocol {
     /** Raw bytes per Bluetooth chunk; base64 makes each frame about 64 KB. */
     public static final int MEDIA_CHUNK_BYTES = 48 * 1024;
 
-    // METAR fields
-    public static final String F_STATIONS = "stations";
     public static final String F_ID = "id";
-    public static final String F_RAW = "raw";
-    public static final String F_OBSERVED = "observed";
-    /** Flight category: VFR, MVFR, IFR or LIFR. */
-    public static final String F_CATEGORY = "cat";
 
     // Location fields
     public static final String F_LAT = "lat";

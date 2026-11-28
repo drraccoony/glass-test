@@ -59,25 +59,17 @@ public class MainActivity extends Activity implements NotificationStore.Listener
         static final int STATUS = 0;
         static final int WEATHER = 1;
         static final int NOTE = 2;
-        static final int METAR = 3;
 
         final int kind;
         final NotificationStore.Note note;
-        final Metar.Station station;
 
         Card(int kind, NotificationStore.Note note) {
-            this(kind, note, null);
-        }
-
-        Card(int kind, NotificationStore.Note note, Metar.Station station) {
             this.kind = kind;
             this.note = note;
-            this.station = station;
         }
 
         String id() {
             if (kind == NOTE) return "note:" + note.key;
-            if (kind == METAR) return "metar:" + station.id;
             return "kind:" + kind;
         }
 
@@ -104,8 +96,6 @@ public class MainActivity extends Activity implements NotificationStore.Listener
     private List<Card> cards = new ArrayList<>();
     private List<NotificationStore.Note> notes = Collections.emptyList();
     private Weather weather;
-    private Metar metar;
-    private boolean metarRefreshing;
 
     private String pendingAlertKey;
     private boolean alertMode;
@@ -237,16 +227,10 @@ public class MainActivity extends Activity implements NotificationStore.Listener
         notes = store.notes();
         weather = store.weather();
         if (weather != previous) weatherRefreshing = false;
-        Metar previousMetar = metar;
-        metar = store.metar();
-        if (metar != previousMetar) metarRefreshing = false;
 
         List<Card> next = new ArrayList<>();
         next.add(new Card(Card.STATUS, null));
         if (weather != null) next.add(new Card(Card.WEATHER, null));
-        if (metar != null) {
-            for (Metar.Station st : metar.stations) next.add(new Card(Card.METAR, null, st));
-        }
         for (NotificationStore.Note n : notes) next.add(new Card(Card.NOTE, n));
         cards = next;
 
@@ -404,16 +388,10 @@ public class MainActivity extends Activity implements NotificationStore.Listener
         v.statusDetails.setVisibility(statusCard ? View.VISIBLE : View.GONE);
         v.title.setVisibility(customBody ? View.GONE : View.VISIBLE);
         v.text.setVisibility(customBody ? View.GONE : View.VISIBLE);
-        // Reset what the METAR card changes, since card views are recycled.
-        v.title.setCompoundDrawablesWithIntrinsicBounds(0, 0, 0, 0);
-        v.text.setTypeface(android.graphics.Typeface.create("sans-serif-light", android.graphics.Typeface.NORMAL));
-        v.time.setTextColor(getResources().getColor(R.color.glass_dim));
         if (card.kind == Card.STATUS) {
             bindStatus(v, connected);
         } else if (weatherCard) {
             bindWeather(v);
-        } else if (card.kind == Card.METAR) {
-            bindMetar(v, card.station);
         } else {
             bindNote(v, card.note, index);
         }
@@ -503,29 +481,6 @@ public class MainActivity extends Activity implements NotificationStore.Listener
         v.position.setText("");
     }
 
-    private void bindMetar(CardViews v, Metar.Station st) {
-        v.icon.setVisibility(View.GONE);
-        v.app.setText(st.name.isEmpty() ? "METAR" : st.name);
-        v.time.setText(st.category);
-        v.time.setTextColor(Metar.categoryColor(st.category));
-        v.title.setText(st.id);
-        v.title.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_airplane, 0, 0, 0);
-        v.title.setCompoundDrawablePadding((int) (10 * getResources().getDisplayMetrics().density));
-        v.text.setTypeface(android.graphics.Typeface.MONOSPACE);
-        v.text.setText(st.raw.startsWith("METAR ") || st.raw.startsWith("SPECI ")
-                ? st.raw.substring(6) : st.raw);
-        String age;
-        if (st.observed <= 0) {
-            age = "No report";
-        } else {
-            long minutes = (System.currentTimeMillis() - st.observed) / 60000;
-            age = "Observed " + (minutes < 1 ? "just now" : minutes < 60 ? minutes + "m ago"
-                    : minutes < 24 * 60 ? (minutes / 60) + "h ago" : "over a day ago");
-        }
-        v.footer.setText(metarRefreshing ? "Updating\u2026" : age + ", tap to refresh");
-        v.position.setText("");
-    }
-
     private void bindNote(CardViews v, NotificationStore.Note note, int index) {
         if (note.icon == null) {
             v.icon.setVisibility(View.GONE);
@@ -567,16 +522,6 @@ public class MainActivity extends Activity implements NotificationStore.Listener
         } else if (card.kind == Card.WEATHER) {
             play(Sounds.TAP);
             refreshWeather();
-        } else if (card.kind == Card.METAR) {
-            metarRefreshing = LinkService.requestMetar();
-            play(metarRefreshing ? Sounds.TAP : Sounds.DISALLOWED);
-            adapter.notifyDataSetChanged();
-            handler.postDelayed(() -> {
-                if (metarRefreshing) {
-                    metarRefreshing = false;
-                    adapter.notifyDataSetChanged();
-                }
-            }, 20000);
         } else {
             play(Sounds.TAP);
             actionKey = card.note.key;

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Lets the app use its own "show airports" trigger. -->
+    <uses-permission android:name="com.google.android.glass.permission.DEVELOPMENT" />
+
+    <application
+        android:allowBackup="false"
+        android:icon="@drawable/ic_airplane"
+        android:label="@string/app_name">
+
+        <uses-library
+            android:name="com.google.android.glass"
+            android:required="true" />
+
+        <activity
+            android:name=".AirportsActivity"
+            android:exported="true"
+            android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="com.google.android.glass.action.VOICE_TRIGGER" />
+            </intent-filter>
+            <meta-data
+                android:name="com.google.android.glass.VoiceTrigger"
+                android:resource="@xml/voice_trigger" />
+        </activity>
+
+        <!-- Woken by the GlassLink hub when the phone sends METARs. -->
+        <receiver
+            android:name=".MetarReceiver"
+            android:exported="true"
+            android:permission="dev.glassrevival.permission.HUB">
+            <intent-filter>
+                <action android:name="dev.glassrevival.hub.action.MESSAGE" />
+            </intent-filter>
+            <meta-data
+                android:name="dev.glassrevival.hub.CHANNELS"
+                android:value="dev.glassrevival.metar" />
+        </receiver>
+    </application>
+</manifest>

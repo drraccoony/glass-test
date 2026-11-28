@@ -239,9 +239,19 @@ translucent activity that calls `openOptionsMenu()` in `onAttachedToWindow()` an
 - **Enabling the voice menu:** `getWindow().requestFeature(WindowUtils.FEATURE_VOICE_COMMANDS)`
   (the value is 11). Build the menu in `onCreatePanelMenu(11, menu)`; the item titles are the
   phrases to say.
-- **Custom phrases:** these need `com.google.android.glass.permission.DEVELOPMENT`. Without it,
-  only `ContextualMenus.Command` phrases work. Several suit recipes: SHOW_INGREDIENTS,
-  SHOW_INSTRUCTIONS, START_A_TIMER, READ_ALOUD, GO_BACK and GO_FORWARD.
+- **Only Glass's built-in phrases work in apps on XE24, even with the DEVELOPMENT permission.**
+  - Custom in-app phrases such as "next step" never load: the offline decoder only adds
+    hotwords it has models for. The log shows `decoder: Adding hotword: '[hotword_read_aloud]'`
+    for each phrase it loads; anything missing from that list won't work.
+  - Custom phrases used to go to Google's servers, which are gone.
+  - **Title each voice menu item with the exact built-in phrase.** The full list is in
+    `/data/data/com.google.glass.voice/files/en-US/hotword_prons.config` (grep `hotword_`),
+    and matches `ContextualMenus.Command`.
+  - Useful navigation phrases: "go forward", "go back", "show more", "see more", "show options",
+    "show instructions", "show ingredients", "read aloud", "start a timer", "stop the timer",
+    "pause the timer", "resume the timer", "stop this", "undo".
+  - **Not yet checked:** home-screen voice triggers (`<trigger keyword=…>`, e.g. "show recipe")
+    use a different, compiled grammar (`app_greco/menu_N_*`) and may still accept custom keywords.
 - **Don't refresh the voice menu.** Calling `invalidatePanelMenu(11)`, or returning true from
   `onPreparePanel` for feature 11, makes XE24 open the command list and listen without "ok glass".
   Accidental speech then fires commands.

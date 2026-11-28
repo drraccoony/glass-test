@@ -25,3 +25,4 @@ jobs:
             companion/build/outputs/apk/debug/companion-debug.apk
             nav-glass/build/outputs/apk/debug/nav-glass-debug.apk
             recipes-glass/build/outputs/apk/debug/recipes-glass-debug.apk
+            airports-glass/build/outputs/apk/debug/airports-glass-debug.apk

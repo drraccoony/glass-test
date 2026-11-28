@@ -12,6 +12,7 @@ your Android phone's notifications onto the display.
 | `hub-api/` | Both | Library that lets other apps share the link (see [Add-on apps](#add-on-apps)) |
 | `nav-glass/` | Glass | GlassLink Navigation: turn-by-turn from Google Maps on the phone |
 | `recipes-glass/` | Glass | Recipes: step through recipes and instructions shared from the phone |
+| `airports-glass/` | Glass | Airports: the latest METAR for each of your airports |
 | `scripts/glasslink.sh` | Your Linux PC | adb setup, USB access, install, logs |
 
 ## Features
@@ -137,13 +138,27 @@ so you get the title, photo, ingredients and steps without the clutter. With pla
 each line becomes a step.
 
 On Glass you get a title card, ingredient cards and one card per step. The screen stays
-on. Swipe, or say **"ok glass"** and then **next step**, **previous step**, **show
-ingredients**, **read aloud**, or **start a timer** when a step mentions a time. The
-timer rings even if you leave the app. **"ok glass, show recipe"** reopens the last one
+on. Swipe, or say **"ok glass"** and then **go forward**, **go back**, **show
+instructions**, **show ingredients**, **read aloud**, **start a timer** (when a step
+mentions a time), **stop the timer** or **stop this**. Glass recognizes only its own
+built-in phrases offline, which is why it isn't "next step". The timer rings even if you
+leave the app. **"ok glass, show recipe"** reopens the last one
 where you left off.
 
 ```bash
 ./scripts/glasslink.sh install-recipes
+```
+
+## Airports (optional)
+
+**Airports** shows the latest METAR for up to six airports, one card each, with the
+raw report and its flight category in color (VFR, MVFR, IFR, LIFR). On the phone, open
+the **Airports** tab, turn on **Show METARs on Glass** and enter codes like `KLVN, KMSP`.
+Reports come from aviationweather.gov and refresh every 10 minutes while Glass is
+connected. On Glass, say **"ok glass, show airports"**. Tap a card to fetch right away.
+
+```bash
+./scripts/glasslink.sh install-airports
 ```
 
 ## Using it on Glass
