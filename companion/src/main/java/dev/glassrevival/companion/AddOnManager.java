@@ -51,6 +51,11 @@ final class AddOnManager implements LinkManager.MessageSink {
             "The forecast for where you are, or a place you pick: now, today's high and low,"
                     + " rain, wind and the next few hours. Say \"ok glass, show me the weather\".",
             "install-weather");
+    static final AddOn MUSIC = new AddOn("dev.glassrevival.music", "Now Playing",
+            "What's playing on your phone, on a card next to the clock: title, artist, album art"
+                    + " and time. Tap it to play, pause, skip or change the volume. Works with any"
+                    + " app that shows a media notification.",
+            "install-music");
     static final AddOn AIRPORTS = new AddOn("dev.glassrevival.airports", "Airports",
             "METARs for your airports, with decoded conditions, density altitude, runway winds and"
                     + " alerts when conditions change. Say \"ok glass, show airports\".",
@@ -63,7 +68,7 @@ final class AddOnManager implements LinkManager.MessageSink {
             "Step through a recipe hands-free. Share a recipe page or text on the phone and choose"
                     + " Send to Glass.",
             "install-recipes");
-    static final List<AddOn> ALL = Collections.unmodifiableList(Arrays.asList(WEATHER, AIRPORTS, NAV, RECIPES));
+    static final List<AddOn> ALL = Collections.unmodifiableList(Arrays.asList(WEATHER, MUSIC, AIRPORTS, NAV, RECIPES));
 
     enum Status { UNKNOWN, NOT_INSTALLED, INSTALLED, UPDATE }
 

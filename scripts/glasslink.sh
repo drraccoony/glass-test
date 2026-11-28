@@ -130,6 +130,16 @@ cmd_install_weather() {
     say "Say \"ok glass, show me the weather\" on Glass"
 }
 
+cmd_install_music() {
+    need_adb
+    local apk serial
+    apk="$(pick_apk "${1:-}" music-glass/build/outputs/apk/debug/music-glass-debug.apk music-glass-debug.apk)"
+    serial="$(glass_serial)"
+    say "Installing $(basename "$apk") on Glass ($serial)"
+    "$ADB" -s "$serial" install -r "$apk"
+    say "Play something on your phone; the card shows up next to the clock"
+}
+
 cmd_install_airports() {
     need_adb
     local apk serial
@@ -275,6 +285,7 @@ Usage: $0 <command>
   install-recipes [apk] Install Recipes on Glass (recipes and instructions from the phone)
   install-airports [apk] Install Airports on Glass (METARs for your airports)
   install-weather [apk] Install Weather on Glass (the forecast)
+  install-music [apk]   Install Now Playing on Glass (media remote)
   install-glass-system [apk]
                         Install the Glass app as a system app, so notifications
                         can go into Glass's own timeline (reboots Glass)
@@ -298,6 +309,7 @@ case "${1:-}" in
     install-recipes) shift; cmd_install_recipes "${1:-}" ;;
     install-airports) shift; cmd_install_airports "${1:-}" ;;
     install-weather) shift; cmd_install_weather "${1:-}" ;;
+    install-music) shift; cmd_install_music "${1:-}" ;;
     install-glass-system) shift; cmd_install_glass_system "${1:-}" ;;
     uninstall-glass-system) cmd_uninstall_glass_system ;;
     start) cmd_start ;;

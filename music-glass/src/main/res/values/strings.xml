@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Now Playing</string>
+    <string name="play">Play</string>
+    <string name="pause">Pause</string>
+    <string name="next">Next track</string>
+    <string name="previous">Previous track</string>
+    <string name="volume_up">Volume up</string>
+    <string name="volume_down">Volume down</string>
+    <string name="hide">Hide</string>
+    <string name="nothing_playing">Nothing playing</string>
+    <string name="tap_to_play">Tap to play on your phone</string>
+</resources>

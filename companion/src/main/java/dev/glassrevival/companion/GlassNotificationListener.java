@@ -33,6 +33,7 @@ public class GlassNotificationListener extends NotificationListenerService imple
         Log.i(LinkManager.TAG, "Notification listener connected");
         listening = true;
         link.setPeer(this);
+        CompanionApp.nowPlaying(this).start(); // media sessions need this access too
         GlassLinkService.startIfEnabled(this);
         if (link.isConnected()) onGlassConnected();
     }

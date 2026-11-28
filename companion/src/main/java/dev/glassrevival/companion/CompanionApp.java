@@ -16,6 +16,7 @@ public class CompanionApp extends Application {
     private LocationSharer location;
     private NavProvider nav;
     private AddOnManager addOns;
+    private NowPlaying nowPlaying;
 
     @Override
     public void onCreate() {
@@ -48,6 +49,9 @@ public class CompanionApp extends Application {
         });
         nav = new NavProvider(this, link);
         link.addHook(nav);
+        nowPlaying = new NowPlaying(this, link);
+        link.addHook(nowPlaying);
+        nowPlaying.start(); // no-op until notification access is granted
         // Channels the companion serves itself; everything else goes to add-on apps.
         link.setChannelSink(msg -> {
             String channel = msg.optString(dev.glassrevival.protocol.Protocol.F_CHANNEL);
@@ -57,6 +61,8 @@ public class CompanionApp extends Application {
                 metar.onGlassMessage(msg);
             } else if (WeatherProvider.CHANNEL.equals(channel)) {
                 weather.onGlassMessage(msg);
+            } else if (NowPlaying.CHANNEL.equals(channel)) {
+                nowPlaying.onGlassMessage(msg);
             } else {
                 hub.deliver(msg);
             }
@@ -66,7 +72,12 @@ public class CompanionApp extends Application {
         addOns.addInstallListener(pkg -> {
             if (AddOnManager.AIRPORTS.pkg.equals(pkg)) metar.glassAppInstalled();
             if (AddOnManager.WEATHER.pkg.equals(pkg)) weather.glassAppInstalled();
+            if (AddOnManager.MUSIC.pkg.equals(pkg)) nowPlaying.onGlassConnected();
         });
+    }
+
+    static NowPlaying nowPlaying(Context context) {
+        return ((CompanionApp) context.getApplicationContext()).nowPlaying;
     }
 
     static AddOnManager addOns(Context context) {

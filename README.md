@@ -14,6 +14,7 @@ your Android phone's notifications onto the display.
 | `recipes-glass/` | Glass | Recipes: step through recipes and instructions shared from the phone |
 | `airports-glass/` | Glass | Airports: the latest METAR for each of your airports |
 | `weather-glass/` | Glass | Weather: the forecast for where you are |
+| `music-glass/` | Glass | Now Playing: what's playing on the phone, with play, pause, skip and volume |
 | `scripts/glasslink.sh` | Your Linux PC | adb setup, USB access, install, logs |
 
 ## Features
@@ -118,15 +119,15 @@ alerts while it's being worn. Otherwise the card is added quietly.
 
 ## Add-on apps on Glass (optional)
 
-Weather, Airports, Navigation and Recipes are separate Glass apps. They come bundled with the
+Weather, Now Playing, Airports, Navigation and Recipes are separate Glass apps. They come bundled with the
 phone app: open its **Apps** tab, tap one, and choose **Install**, **Update** or **Remove**.
 The tab shows what's on Glass and offers an update when the bundled build differs.
 
 Installing from the phone needs GlassLink's system install on Glass (see
 [Glass timeline](#glass-timeline-optional)). If you did that before the Apps tab existed,
 run `./scripts/glasslink.sh install-glass-system` once more so GlassLink gets permission to
-install apps. Without the system install, use the `install-weather`, `install-airports`,
-`install-nav` and `install-recipes` commands below; the Apps tab still shows what's installed.
+install apps. Without the system install, use the `install-weather`, `install-music`,
+`install-airports`, `install-nav` and `install-recipes` commands below; the Apps tab still shows what's installed.
 
 The phone only sends data an add-on can use: no forecasts without Weather, no METAR
 downloads without Airports, no navigation steps without Navigation, and **Send to Glass**
@@ -143,6 +144,20 @@ or for a place you pick. Set that, and Fahrenheit, under **Weather** in the phon
 
 ```bash
 ./scripts/glasslink.sh install-weather
+```
+
+## Now Playing (optional)
+
+When something plays on the phone (Spotify, YouTube Music, a podcast app, anything with a
+media notification), **Now Playing** puts a card next to the clock with the album art,
+title, artist and time. Tap it for **Play/Pause**, **Next track**, **Previous track**,
+**Volume up/down** and **Hide**. The card goes away when the phone has nothing left to
+control, or after 15 minutes paused. **"ok glass, listen to"** brings it back, and **Play**
+there resumes the last app, like headphone buttons do. It uses the notification access
+GlassLink already has.
+
+```bash
+./scripts/glasslink.sh install-music
 ```
 
 ## Navigation (optional)

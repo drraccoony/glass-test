@@ -49,6 +49,7 @@ def addOnApps = [
     'recipes-glass' : 'dev.glassrevival.recipes',
     'airports-glass': 'dev.glassrevival.airports',
     'weather-glass' : 'dev.glassrevival.weather',
+    'music-glass'   : 'dev.glassrevival.music',
 ]
 def addOnAssets = layout.buildDirectory.dir('generated/addon-assets')
 def copyAddOns = tasks.register('copyAddOns', Copy) {

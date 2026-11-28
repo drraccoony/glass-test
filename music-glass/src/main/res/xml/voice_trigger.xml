@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- "ok glass, listen to": one of Glass's built-in commands (hotword_listen_to), so it
+     works offline. Custom keywords aren't recognized on this firmware. -->
+<trigger command="LISTEN_TO" />
