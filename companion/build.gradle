@@ -42,7 +42,8 @@ android {
 }
 
 // The Glass add-on apps ride along inside the companion, so its Apps tab can install them
-// on Glass. Always the debug builds: they're signed with the same key either way.
+// on Glass. Always the release builds (same key): debug builds are updated in place and
+// collect holes, which once made a 60 KB app 270 KB, and APKs cross Bluetooth at ~5 KB/s.
 def addOnApps = [
     'nav-glass'     : 'dev.glassrevival.nav',
     'recipes-glass' : 'dev.glassrevival.recipes',
@@ -52,8 +53,8 @@ def addOnApps = [
 def addOnAssets = layout.buildDirectory.dir('generated/addon-assets')
 def copyAddOns = tasks.register('copyAddOns', Copy) {
     addOnApps.each { module, pkg ->
-        dependsOn ":${module}:assembleDebug"
-        from(rootProject.file("${module}/build/outputs/apk/debug/${module}-debug.apk")) {
+        dependsOn ":${module}:assembleRelease"
+        from(rootProject.file("${module}/build/outputs/apk/release/${module}-release.apk")) {
             rename { "${pkg}.apk" }
         }
     }

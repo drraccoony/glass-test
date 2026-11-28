@@ -38,13 +38,6 @@ android {
         }
     }
 
-    // Leave out the encrypted dependency list AGP adds for Google Play. It made a 100 KB app
-    // about 270 KB, and add-ons cross Bluetooth to Glass at about 5 KB/s.
-    dependenciesInfo {
-        includeInApk false
-        includeInBundle false
-    }
-
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
