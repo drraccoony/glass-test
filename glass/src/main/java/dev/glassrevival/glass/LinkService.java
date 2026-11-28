@@ -131,6 +131,7 @@ public class LinkService extends Service {
     private HubHost hub;
     /** Glass's own timeline. Null unless GlassLink is installed as a system app. */
     private NativeTimeline timeline;
+    private PhoneLocation phoneLocation;
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService sender = Executors.newSingleThreadExecutor();
 
@@ -188,6 +189,8 @@ public class LinkService extends Service {
             timeline.clearAll(); // leftovers from before; the phone resends on connect
             Log.i(TAG, "Glass timeline is available");
         }
+        phoneLocation = new PhoneLocation(this);
+        phoneLocation.ensureReady(); // register providers now, so apps find them before a fix
         running = true;
         acceptThread = new Thread(this::acceptLoop, "GlassLink-accept");
         acceptThread.start();
@@ -456,6 +459,8 @@ public class LinkService extends Service {
                     getSharedPreferences("glasslink", MODE_PRIVATE).edit()
                             .putString(METAR_PREF, json).apply();
                 }
+            } else if (Protocol.LOCATION.equals(type)) {
+                phoneLocation.update(msg);
             } else if (Protocol.CLOCK.equals(type)) {
                 applyTimeZone(msg.optString(Protocol.F_TIMEZONE, ""));
             } else if (Protocol.WEATHER.equals(type)) {

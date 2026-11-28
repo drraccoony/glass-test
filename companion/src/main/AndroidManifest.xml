@@ -11,6 +11,8 @@
     <!-- Weather: fetch the forecast, using a rough location. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Precise location for Glass (photo geotags, navigation); Glass has no GPS. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 
     <!-- Lets us show app names and icons for the apps whose notifications we forward. -->

@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+Live card for the current step. Glass is 640x360 px at hdpi, about 427x240 dp.
+Only RemoteViews-safe views (no custom fonts or classes).
+
+  [arrow]  350 ft
+           Turn right onto
+           E 130th St
+  ===========...........  route progress
+  Arrive 1:11 AM
+-->
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000"
+    android:paddingLeft="27dp"
+    android:paddingTop="20dp"
+    android:paddingRight="27dp"
+    android:paddingBottom="14dp">
+
+    <ImageView
+        android:id="@+id/arrow"
+        android:layout_width="96dp"
+        android:layout_height="96dp"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentTop="true"
+        android:layout_marginTop="8dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_nav" />
+
+    <TextView
+        android:id="@+id/distance"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_marginLeft="20dp"
+        android:layout_toRightOf="@id/arrow"
+        android:ellipsize="end"
+        android:fontFamily="sans-serif-thin"
+        android:singleLine="true"
+        android:textColor="#FFFFFF"
+        android:textSize="46sp" />
+
+    <TextView
+        android:id="@+id/instruction"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignWithParentIfMissing="true"
+        android:layout_below="@id/distance"
+        android:layout_marginLeft="20dp"
+        android:layout_toRightOf="@id/arrow"
+        android:ellipsize="end"
+        android:fontFamily="sans-serif-light"
+        android:maxLines="3"
+        android:textColor="#FFFFFF"
+        android:textSize="22sp" />
+
+    <TextView
+        android:id="@+id/eta"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:ellipsize="end"
+        android:fontFamily="sans-serif-light"
+        android:singleLine="true"
+        android:textColor="#B3B3B3"
+        android:textSize="16sp" />
+
+    <ProgressBar
+        android:id="@+id/progress"
+        style="@android:style/Widget.ProgressBar.Horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="4dp"
+        android:layout_above="@id/eta"
+        android:layout_marginBottom="6dp"
+        android:progressDrawable="@drawable/route_progress" />
+</RelativeLayout>

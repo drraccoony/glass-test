@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">GlassLink Navigation</string>
+    <string name="stop_navigation">Stop navigation</string>
+    <string name="waiting">Waiting for your phone</string>
+</resources>

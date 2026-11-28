@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <application
+        android:allowBackup="false"
+        android:icon="@drawable/ic_nav"
+        android:label="@string/app_name">
+
+        <uses-library
+            android:name="com.google.android.glass"
+            android:required="true" />
+
+        <!-- Owns the live card while navigation runs. -->
+        <service
+            android:name=".NavService"
+            android:exported="false" />
+
+        <!-- Woken by the GlassLink hub when the phone starts navigating. -->
+        <receiver
+            android:name=".NavReceiver"
+            android:exported="true"
+            android:permission="dev.glassrevival.permission.HUB">
+            <intent-filter>
+                <action android:name="dev.glassrevival.hub.action.MESSAGE" />
+            </intent-filter>
+            <meta-data
+                android:name="dev.glassrevival.hub.CHANNELS"
+                android:value="dev.glassrevival.nav" />
+        </receiver>
+
+        <!-- The menu shown when the live card is tapped. -->
+        <activity
+            android:name=".NavMenuActivity"
+            android:exported="false"
+            android:theme="@style/MenuTheme" />
+    </application>
+</manifest>

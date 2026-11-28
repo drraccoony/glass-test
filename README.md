@@ -10,6 +10,7 @@ your Android phone's notifications onto the display.
 | `companion/` | Android phone (8.0 or newer) | Reads notifications and sends them to Glass |
 | `protocol/` | Both | Shared message format, with unit tests |
 | `hub-api/` | Both | Library that lets other apps share the link (see [Add-on apps](#add-on-apps)) |
+| `nav-glass/` | Glass | GlassLink Navigation: turn-by-turn from Google Maps on the phone |
 | `scripts/glasslink.sh` | Your Linux PC | adb setup, USB access, install, logs |
 
 ## Features
@@ -112,7 +113,21 @@ Turn it off with **Show in the Glass timeline** in the phone app, or undo the sy
 install with `./scripts/glasslink.sh uninstall-glass-system`. Glass only shows
 alerts while it's being worn. Otherwise the card is added quietly.
 
-## Using it on Glass
+## Navigation (optional)
+
+**GlassLink Navigation** puts Google Maps turn-by-turn on Glass: a live card next to the
+clock with the turn arrow, the distance, the instruction, a route progress bar and your
+arrival time. Glass chimes and wakes as a turn gets close (about 500 ft). Tap the card to
+stop navigation, which also ends it in Maps on the phone.
+
+```bash
+./scripts/glasslink.sh install-nav
+```
+
+Then start navigation in Google Maps on the phone as usual. The companion reads Maps'
+navigation notification and sends each step to Glass. It needs notification access, which
+GlassLink already has.
+
 
 | Gesture | Action |
 | --- | --- |

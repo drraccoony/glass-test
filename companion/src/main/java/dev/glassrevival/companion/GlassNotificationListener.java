@@ -51,6 +51,7 @@ public class GlassNotificationListener extends NotificationListenerService imple
 
     @Override
     public void onNotificationPosted(StatusBarNotification sbn, RankingMap rankingMap) {
+        CompanionApp.nav(this).onPosted(sbn); // Maps turn-by-turn; kept even while disconnected
         if (!link.isConnected()) {
             // Still note the app so it appears in the mute list.
             CompanionApp.prefs(this).recordSeen(sbn.getPackageName());
@@ -62,6 +63,7 @@ public class GlassNotificationListener extends NotificationListenerService imple
 
     @Override
     public void onNotificationRemoved(StatusBarNotification sbn, RankingMap rankingMap) {
+        CompanionApp.nav(this).onRemoved(sbn);
         if (mapper.forget(sbn.getKey())) sendRemove(sbn.getKey());
     }
 
@@ -92,6 +94,7 @@ public class GlassNotificationListener extends NotificationListenerService imple
         });
         int sent = 0;
         for (StatusBarNotification sbn : active) {
+            CompanionApp.nav(this).onPosted(sbn); // pick up a navigation already running
             JSONObject msg = mapper.map(sbn, ranking, true);
             if (msg != null) {
                 link.send(msg);

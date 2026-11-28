@@ -16,6 +16,16 @@
         tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!--
+    Feed the phone's location to Glass apps through mock "gps" and "network" providers.
+    WRITE_SECURE_SETTINGS (system apps only) lets GlassLink turn on mock locations itself.
+    -->
+    <uses-permission
+        android:name="android.permission.ACCESS_MOCK_LOCATION"
+        tools:ignore="MockLocation" />
+    <uses-permission
+        android:name="android.permission.WRITE_SECURE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
+    <!--
     Write to Glass's own timeline. Only granted when GlassLink is installed in
     /system/priv-app (scripts/glasslink.sh install-glass-system); otherwise ignored.
     -->

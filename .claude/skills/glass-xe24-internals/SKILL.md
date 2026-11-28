@@ -138,6 +138,102 @@ Inserting a row is silent. The home screen alerts only when it receives this bro
    - or pull `timeline.db` together with its `-wal` and `-shm` files and open them with sqlite
 5. Raw blobs can be decoded without a schema using a generic protobuf wire-format dumper.
 
+## The original MyGlass protocol (still on Glass)
+
+`com.google.glass.companion` is a system app on Glass: the Glass end of MyGlass's Bluetooth link.
+It sits idle today. Its message is `companion.Proto.Envelope` (in GlassSync's decompiled sources).
+In the field names, C2G means phone→Glass and G2C means Glass→phone.
+
+**Header fields:** 1 version, 2 serialNumber, 3 timeMillis, 4 uptimeMillis.
+
+**Messages, with what each did in MyGlass:**
+
+| # | Field | What it did |
+|---|---|---|
+| 5 | timelineItem (repeated) | notifications, SMS |
+| 6 | locationRequestG2C | Glass asks for the phone's location |
+| 7 | locationMessageC2G | phone sends its location |
+| 8 | messageC2G | |
+| 9 | timezoneC2G | |
+| 10 | navigationRequestC2G | start Glass's built-in navigation |
+| 11 | urlG2C | open a link on the phone |
+| 12 | setupWifiC2G | |
+| 13 | companionInfo | |
+| 14 | error | |
+| 15 | screenshot | screencast |
+| 16 | command | |
+| 17 | (repeated) | |
+| 18 | apiRequestC2G | |
+| 19 | apiResponseG2C | |
+| 20 | motionC2G | remote touch: MotionEvent fields with a pointer list |
+| 21 | glassInfoRequestC2G | |
+| 22 | glassInfoResponseG2C | |
+| 23 | inputBoxRequestG2C | Glass asks the phone for typed text |
+| 24 | inputBoxResponseC2G | |
+| 25 | glassSetupRequestC2G | |
+| 26 | glassSetupResponseG2C | |
+| 27 | setupWifiRequestG2C | |
+| 28 | photoG2C | send a photo to the phone |
+| 29 | updateCredentialRequestG2C | |
+| 30 | androidDeviceInfo | |
+| 31 | companionDeviceInfoC2G | |
+| 32 | companionFeatureInfoC2G | |
+| 33 | glassFeatureInfoG2C | |
+| 34 | wallpaperC2G | |
+| 35 | openEndedInputRequestG2C | Glass asks for free text |
+| 36 | openEndedInputResponseC2G | |
+| 37 | multimediaMessage | |
+| 38 | setWallpaperRequestC2G | |
+| 39 | setWallpaperResponseG2C | |
+| 40 | getWallpaperInfoC2G | |
+| 41 | wallpaperInfoG2C | |
+
+**Location on Glass:**
+- **The phone used to be the only source.** Glass XE has no GPS provider, and its GMS Wi-Fi
+  "network" provider is normally off.
+- **GlassHome's `location/LocationService`** serves Glass apps through `GlassLocationManager`
+  (provider names `remote_gps` and `remote_network`). It has two sources:
+  - **Local:** Android's `LocationManager`.
+    - "network" is always used when that provider exists.
+    - "gps" is used only when the Labs flag `GPS_ENABLE_LOCAL` is on.
+  - **Remote:** MyGlass, through `CompanionLocationProxy`. It's reached over a binder to
+    `com.google.glass.companion` (`RemoteCompanionProxy`), which you can't inject into from outside.
+- **Labs flags** are system properties named `persist.lab.<feature name, lowercase>`, for example
+  `setprop persist.lab.gps_enable_local true`. Set them as root over adb; they survive reboots.
+- **What GlassLink does** (`PhoneLocation.java`): it registers mock "gps" and "network" providers with
+  `LocationManager.addTestProvider`, which replaces any real provider with that name, and sets each fix
+  from the phone. This needs:
+  - `ACCESS_MOCK_LOCATION`, which Glass grants
+  - the secure setting `mock_location` set to 1
+  - a fix with both `time` and `elapsedRealtimeNanos` set
+- **Permissions of an updated system app:** after an `adb install -r` update, a system app only gets
+  the system permissions its original `/system` copy requested. That's why `WRITE_SECURE_SETTINGS`
+  isn't granted, and why the script sets `mock_location` itself.
+
+**Not yet investigated:**
+- how `com.google.glass.companion` connects (RFCOMM UUID, framing)
+- what handshake it expects
+- whether it still needs Google account checks on XE24
+
+## LiveCard (GDK, XE24)
+
+**API** (from `dexdump` of glass-core.jar; stub in `gdk-stubs`):
+- `new LiveCard(Context, String tag)`
+- `attach(Service)`
+- `setViews(RemoteViews)`
+- `setAction(PendingIntent)`. This must be set before `publish`.
+- `setVoiceActionEnabled(boolean)`
+- `setDirectRenderingEnabled(boolean)`, plus `getSurfaceHolder()` and `setRenderer(GlRenderer)` for drawing directly
+- `publish(PublishMode.SILENT | REVEAL)`. REVEAL jumps the timeline to the card.
+- `unpublish()`, `isPublished()`
+- `navigate()`, which brings the card to the front
+- `setPinned(String)`
+
+**The card's views** are drawn in the home screen's process, so they're limited to
+RemoteViews-safe widgets. The usual pattern, which `nav-glass` uses: tapping the card opens a
+translucent activity that calls `openOptionsMenu()` in `onAttachedToWindow()` and finishes in
+`onOptionsMenuClosed()`.
+
 ## Other built-in components worth knowing
 
 - **`com.google.glass.sync`:** TimelineProvider, StylesheetProvider (CSS for Mirror HTML cards),

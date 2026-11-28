@@ -73,6 +73,21 @@ Other apps can share the Glass↔phone link. Details are in the README section "
 - **Message ordering on Glass:** add-on frames are only sent after `welcome`
   (the `Session.welcomed` flag in `LinkService`), because the phone expects `welcome` first.
 
+## Navigation add-on (`nav-glass`)
+
+- **What it is:** a separate Glass app that uses the hub on channel `dev.glassrevival.nav`.
+- **Phone side:** `companion/.../NavProvider.java` reads Google Maps' navigation notification
+  (category `navigation`). The message format is documented in that class.
+- **Install:** `./scripts/glasslink.sh install-nav`
+- **Testing from adb:** start a real navigation on the phone with
+  `adb -s $P shell "am start -a android.intent.action.VIEW -d 'google.navigation:q=LAT,LON&mode=d' -p com.google.android.apps.maps"`.
+  Stop it with `am force-stop com.google.android.apps.maps`, or with the card's Stop menu.
+  - To see the raw notification: `dumpsys notification --noredact`.
+  - In 2026 the title looked like `350 ft · Turn right onto X`, the subText like `Arrive 1:11 AM`,
+    and the large icon was the turn arrow.
+- **Reinstalling** the nav app kills its service. The next step from the phone wakes it through
+  `NavReceiver`. To force a new step, restart the Maps navigation.
+
 ## Native timeline mode
 
 - `LinkService` sends notifications to `NativeTimeline` when GlassLink is a system app and the phone's

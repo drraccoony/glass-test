@@ -23,3 +23,4 @@ jobs:
           path: |
             glass/build/outputs/apk/debug/glass-debug.apk
             companion/build/outputs/apk/debug/companion-debug.apk
+            nav-glass/build/outputs/apk/debug/nav-glass-debug.apk

@@ -98,6 +98,17 @@ cmd_install_glass() {
     cmd_start
 }
 
+# Add-on: turn-by-turn from Google Maps on the phone. Needs GlassLink on both devices.
+cmd_install_nav() {
+    need_adb
+    local apk serial
+    apk="$(pick_apk "${1:-}" nav-glass/build/outputs/apk/debug/nav-glass-debug.apk nav-glass-debug.apk)"
+    serial="$(glass_serial)"
+    say "Installing $(basename "$apk") on Glass ($serial)"
+    "$ADB" -s "$serial" install -r "$apk"
+    say "Start navigation in Google Maps on your phone; the card appears next to the clock"
+}
+
 cmd_install_phone() {
     need_adb
     local apk serial
@@ -159,12 +170,23 @@ cmd_install_glass_system() {
     "${sh[@]}" "if [ -d /data/local/tmp/glasslink-prefs ]; then am force-stop $GLASS_PKG && mkdir -p $prefs && cp /data/local/tmp/glasslink-prefs/* $prefs/ && chown $uid:$uid $prefs $prefs/* && chmod 771 $prefs && chmod 660 $prefs/* && rm -rf /data/local/tmp/glasslink-prefs; fi" </dev/null \
         || warn "Couldn't restore settings. They are saved in /data/local/tmp/glasslink-prefs on Glass"
 
+    glass_location_setup "$serial"
+
     if "${sh[@]}" dumpsys package "$GLASS_PKG" </dev/null | grep -q "com.google.glass.sync.permission.TIMELINE_PROVIDER"; then
         say "GlassLink can now write to the Glass timeline"
     else
         warn "Glass didn't grant the timeline permission. Check: adb shell dumpsys package $GLASS_PKG"
     fi
     cmd_start
+}
+
+# Lets Glass apps use the phone's location: allow mock locations (GlassLink provides
+# "gps" and "network" from the phone) and turn on the Glass Labs flag that makes Glass's
+# own location service read the local "gps" provider. Both survive reboots.
+glass_location_setup() {
+    local serial="$1"
+    "$ADB" -s "$serial" shell "settings put secure mock_location 1; setprop persist.lab.gps_enable_local true" </dev/null
+    say "Glass apps can now use the phone's location"
 }
 
 # Puts GlassLink back to a regular install.
@@ -218,6 +240,7 @@ Usage: $0 <command>
   devices               List connected devices
   install-glass [apk]   Install the Glass app and open it
   install-phone [apk]   Install the phone companion and open it
+  install-nav [apk]     Install GlassLink Navigation on Glass (turn-by-turn from Maps)
   install-glass-system [apk]
                         Install the Glass app as a system app, so notifications
                         can go into Glass's own timeline (reboots Glass)
@@ -237,6 +260,7 @@ case "${1:-}" in
     devices) cmd_devices ;;
     install-glass) shift; cmd_install_glass "${1:-}" ;;
     install-phone) shift; cmd_install_phone "${1:-}" ;;
+    install-nav) shift; cmd_install_nav "${1:-}" ;;
     install-glass-system) shift; cmd_install_glass_system "${1:-}" ;;
     uninstall-glass-system) cmd_uninstall_glass_system ;;
     start) cmd_start ;;

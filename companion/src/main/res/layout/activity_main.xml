@@ -202,6 +202,34 @@
                 </LinearLayout>
             </LinearLayout>
 
+            <TextView style="@style/Section" android:text="Location" />
+            <LinearLayout style="@style/Card">
+                <Switch
+                    android:id="@+id/opt_share_location"
+                    style="@style/SwitchRow"
+                    android:text="Share this phone's location with Glass" />
+                <View style="@style/Divider" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:minHeight="52dp"
+                    android:orientation="horizontal">
+                    <TextView
+                        android:id="@+id/location_state"
+                        style="@style/RowLabel" />
+                    <Button
+                        android:id="@+id/location_button"
+                        style="@style/TextButton"
+                        android:text="Allow" />
+                </LinearLayout>
+            </LinearLayout>
+            <TextView
+                style="@style/Hint"
+                android:layout_marginStart="4dp"
+                android:layout_marginTop="8dp"
+                android:text="Glass has no GPS. While connected, it gets this phone's location about every 30 seconds, for photo locations and navigation. The Glass timeline install also lets Glass's own apps use it." />
+
             </LinearLayout>
         </ScrollView>
         <ScrollView

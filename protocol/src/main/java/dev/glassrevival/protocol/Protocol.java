@@ -10,6 +10,9 @@ package dev.glassrevival.protocol;
  * <pre>
  * phone -> glass   hello   {v, code, name, tz?}      must be the first frame
  * phone -> glass   clock   {tz}                      the phone's time zone changed
+ * phone -> glass   location {lat, lon, acc, age, alt?, speed?, bearing?}
+ *                    the phone's position (Glass has no GPS). acc in metres, age = ms
+ *                    since the fix, speed m/s, bearing degrees
  * phone -> glass   metar   {updated, stations: [{id, name, raw, observed, cat}]}
  *                            an empty list removes the METAR cards
  * glass -> phone   metar_request                     user asked for fresh METARs
@@ -77,6 +80,7 @@ public final class Protocol {
     public static final String REPLY_RESULT = "reply_result";
     public static final String WEATHER = "weather";
     public static final String CLOCK = "clock";
+    public static final String LOCATION = "location";
     public static final String METAR = "metar";
     public static final String METAR_REQUEST = "metar_request";
     public static final String SETTINGS = "settings";
@@ -179,6 +183,15 @@ public final class Protocol {
     public static final String F_OBSERVED = "observed";
     /** Flight category: VFR, MVFR, IFR or LIFR. */
     public static final String F_CATEGORY = "cat";
+
+    // Location fields
+    public static final String F_LAT = "lat";
+    public static final String F_LON = "lon";
+    public static final String F_ACCURACY = "acc";
+    public static final String F_AGE = "age";
+    public static final String F_ALTITUDE = "alt";
+    public static final String F_SPEED = "speed";
+    public static final String F_BEARING = "bearing";
 
     /** An IANA time zone ID such as "America/Chicago". */
     public static final String F_TIMEZONE = "tz";

@@ -36,6 +36,7 @@ public class MainActivity extends Activity implements LinkManager.Listener {
 
     private static final int REQ_PERMS = 1;
     private static final int REQ_LOCATION = 2;
+    private static final int REQ_PRECISE = 3;
 
     private Prefs prefs;
     private LinkManager link;
@@ -72,6 +73,8 @@ public class MainActivity extends Activity implements LinkManager.Listener {
     private Switch weatherFahrenheit;
     private TextView weatherPlace;
     private TextView weatherLocationState;
+    private TextView locationState;
+    private Button locationButton;
     private Button weatherLocationButton;
     private View weatherLocationRow;
     private TextView weatherStatus;
@@ -125,6 +128,7 @@ public class MainActivity extends Activity implements LinkManager.Listener {
         findViewById(R.id.muted).setOnClickListener(v -> editMutedApps());
         findViewById(R.id.quick_replies).setOnClickListener(v -> editQuickReplies());
         setUpNotificationOptions();
+        setUpLocationSharing();
         enabled.setOnCheckedChangeListener((button, on) -> setForwarding(on));
 
         weather = CompanionApp.weather(this);
@@ -206,7 +210,53 @@ public class MainActivity extends Activity implements LinkManager.Listener {
         super.onDestroy();
     }
 
+    private void setUpLocationSharing() {
+        locationState = findViewById(R.id.location_state);
+        locationButton = findViewById(R.id.location_button);
+        bindSwitch(R.id.opt_share_location, prefs.shareLocation(), on -> {
+            prefs.setShareLocation(on);
+            CompanionApp.location(this).settingsChanged();
+            if (on && !LocationSharer.hasPrecise(this)) requestPreciseLocation();
+            refresh();
+        });
+        locationButton.setOnClickListener(v -> {
+            if (!LocationSharer.hasPrecise(this)) requestPreciseLocation();
+            else requestLocation(); // asks for "all the time"
+        });
+    }
+
+    private void requestPreciseLocation() {
+        // Android 12+ only offers "precise" when both are requested together.
+        requestPermissions(new String[] {Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION}, REQ_PRECISE);
+    }
+
+    private void refreshLocationSharing() {
+        if (locationState == null) return; // not set up yet
+        boolean on = prefs.shareLocation();
+        String state;
+        String button = null;
+        if (!on) {
+            state = "Off";
+        } else if (!hasLocation()) {
+            state = "Location access: needed";
+            button = "Allow";
+        } else if (!LocationSharer.hasPrecise(this)) {
+            state = "Approximate only (no photo locations)";
+            button = "Precise";
+        } else if (!hasBackgroundLocation()) {
+            state = "Only while this app is open";
+            button = "All the time";
+        } else {
+            state = link.isConnected() ? "Sharing precise location" : "Ready; shares while connected";
+        }
+        locationState.setText(state);
+        locationButton.setVisibility(button == null ? View.GONE : View.VISIBLE);
+        if (button != null) locationButton.setText(button);
+    }
+
     private void refresh() {
+        refreshLocationSharing();
         statusTitle.setText(StatusText.title(link));
         String detail = StatusText.detail(link);
         statusDetail.setText(detail);
@@ -1179,6 +1229,13 @@ public class MainActivity extends Activity implements LinkManager.Listener {
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
         super.onRequestPermissionsResult(requestCode, permissions, results);
+        if (requestCode == REQ_PRECISE || requestCode == REQ_LOCATION) {
+            CompanionApp.location(this).settingsChanged();
+        }
+        if (requestCode == REQ_PRECISE) {
+            refresh();
+            return;
+        }
         if (requestCode == REQ_LOCATION) {
             if (hasLocation()) {
                 weather.rememberForegroundLocation();

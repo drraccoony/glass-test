@@ -27,6 +27,7 @@ final class Prefs {
     private static final String WEATHER_STATUS = "weather_status";
     private static final String WAKE = "alert_wake";
     private static final String TIMELINE = "use_timeline";
+    private static final String SHARE_LOCATION = "share_location";
     private static final String SOUND = "alert_sound";
     private static final String ALERT_SECONDS = "alert_seconds";
     private static final String ONLY_LOCKED = "alert_only_locked";
@@ -182,6 +183,15 @@ final class Prefs {
     }
 
     // ---- Notification options ----
+
+    /** Send the phone's location to Glass, which has no GPS of its own. */
+    boolean shareLocation() {
+        return sp.getBoolean(SHARE_LOCATION, true);
+    }
+
+    void setShareLocation(boolean on) {
+        sp.edit().putBoolean(SHARE_LOCATION, on).apply();
+    }
 
     /** Put notifications in Glass's own timeline, when GlassLink is a system app there. */
     boolean useTimeline() {

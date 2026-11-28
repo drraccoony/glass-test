@@ -13,6 +13,8 @@ public class CompanionApp extends Application {
     private GlassSettings glassSettings;
     private MediaClient media;
     private HubHost hub;
+    private LocationSharer location;
+    private NavProvider nav;
 
     @Override
     public void onCreate() {
@@ -26,6 +28,8 @@ public class CompanionApp extends Application {
         glassSettings = new GlassSettings(prefs, link);
         link.addHook(glassSettings);
         media = new MediaClient(this, link);
+        location = new LocationSharer(this, prefs, link);
+        link.addHook(location);
         hub = new HubHost(this, new HubHost.Link() {
             @Override
             public boolean isConnected() {
@@ -39,8 +43,25 @@ public class CompanionApp extends Application {
                 return true;
             }
         });
-        link.setChannelSink(hub::deliver);
+        nav = new NavProvider(this, link);
+        link.addHook(nav);
+        // Channels the companion serves itself; everything else goes to add-on apps.
+        link.setChannelSink(msg -> {
+            if (NavProvider.CHANNEL.equals(msg.optString(dev.glassrevival.protocol.Protocol.F_CHANNEL))) {
+                nav.onGlassMessage(msg);
+            } else {
+                hub.deliver(msg);
+            }
+        });
         link.addListener(() -> hub.setConnected(link.isConnected()));
+    }
+
+    static NavProvider nav(Context context) {
+        return ((CompanionApp) context.getApplicationContext()).nav;
+    }
+
+    static LocationSharer location(Context context) {
+        return ((CompanionApp) context.getApplicationContext()).location;
     }
 
     static HubHost hub(Context context) {
