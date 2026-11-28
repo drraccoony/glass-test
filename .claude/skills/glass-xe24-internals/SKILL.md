@@ -255,6 +255,11 @@ translucent activity that calls `openOptionsMenu()` in `onAttachedToWindow()` an
   - Useful navigation phrases: "go forward", "go back", "show more", "see more", "show options",
     "show instructions", "show ingredients", "read aloud", "start a timer", "stop the timer",
     "pause the timer", "resume the timer", "stop this", "undo".
+  - Media phrases: "play music", "pause music", "stop music", "next track", "previous track",
+    "change the volume", "exit music".
+  - **Home-screen triggers:** `<trigger command="..."/>` with a built-in command works offline
+    (`SHOW_ME_THE_WEATHER` in weather-glass, `LISTEN_TO` in music-glass). Hotwords that have a
+    `_disambig` entry (e.g. `hotword_listen_to_disambig`) are home-menu commands that several apps can share.
   - **Not yet checked:** home-screen voice triggers (`<trigger keyword=…>`, e.g. "show recipe")
     use a different, compiled grammar (`app_greco/menu_N_*`) and may still accept custom keywords.
 - **Don't refresh the voice menu.** Calling `invalidatePanelMenu(11)`, or returning true from

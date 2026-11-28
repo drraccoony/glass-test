@@ -106,8 +106,17 @@ final class NowPlaying implements LinkManager.GlassHook {
                     break;
                 }
             }
-            // Nothing playing: the most recent session (the list is ordered that way).
-            if (pick == null && !active.isEmpty()) pick = active.get(0);
+            // Nothing playing: the most recent session with a track loaded (the list is
+            // ordered by recency). An app that's open but idle has no metadata, and
+            // play() on it does nothing.
+            if (pick == null) {
+                for (MediaController c : active) {
+                    if (hasTrack(c)) {
+                        pick = c;
+                        break;
+                    }
+                }
+            }
         }
         follow(pick);
     }
@@ -164,6 +173,12 @@ final class NowPlaying implements LinkManager.GlassHook {
             }
         }
     };
+
+    private static boolean hasTrack(MediaController c) {
+        MediaMetadata md = c.getMetadata();
+        return md != null && (!TextUtils.isEmpty(md.getText(MediaMetadata.METADATA_KEY_TITLE))
+                || !TextUtils.isEmpty(md.getText(MediaMetadata.METADATA_KEY_DISPLAY_TITLE)));
+    }
 
     private static boolean isPlaying(MediaController c) {
         PlaybackState s = c == null ? null : c.getPlaybackState();
@@ -247,6 +262,7 @@ final class NowPlaying implements LinkManager.GlassHook {
             String key = msg.optString("state") + "|" + msg.optString("title") + "|" + msg.optString("artist")
                     + "|" + msg.optInt("volume") + "|" + msg.optLong("duration") + "|" + (msg.optLong("position") / 3000);
             if (key.equals(lastSent) && !msg.has("art")) return;
+            if (!key.equals(lastSent)) Log.d(TAG, "Now playing: " + key);
             lastSent = key;
             msg.put(Protocol.F_CHANNEL, CHANNEL);
             link.send(msg);

@@ -254,9 +254,10 @@ public class MusicService extends Service {
         if (next != Long.MAX_VALUE) handler.postDelayed(tick, next);
     }
 
+    /** Same style as the Chronometer next to it: "04:13", "1:02:45". */
     private static String clock(long ms) {
         long s = ms / 1000;
         return s >= 3600 ? String.format(Locale.US, "%d:%02d:%02d", s / 3600, (s / 60) % 60, s % 60)
-                : String.format(Locale.US, "%d:%02d", s / 60, s % 60);
+                : String.format(Locale.US, "%02d:%02d", s / 60, s % 60);
     }
 }
