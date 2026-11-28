@@ -41,6 +41,20 @@
             </intent-filter>
         </activity>
 
+        <!-- Share sheet: send a recipe page or instructions to the Recipes app on Glass. -->
+        <activity
+            android:name=".SendToGlassActivity"
+            android:exported="true"
+            android:label="Send to Glass"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
         <activity
             android:name=".CastActivity"
             android:exported="false"

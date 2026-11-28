@@ -109,6 +109,17 @@ cmd_install_nav() {
     say "Start navigation in Google Maps on your phone; the card appears next to the clock"
 }
 
+# Add-on: recipes and instructions shared from the phone ("Send to Glass").
+cmd_install_recipes() {
+    need_adb
+    local apk serial
+    apk="$(pick_apk "${1:-}" recipes-glass/build/outputs/apk/debug/recipes-glass-debug.apk recipes-glass-debug.apk)"
+    serial="$(glass_serial)"
+    say "Installing $(basename "$apk") on Glass ($serial)"
+    "$ADB" -s "$serial" install -r "$apk"
+    say "On your phone, share a recipe page and choose Send to Glass"
+}
+
 cmd_install_phone() {
     need_adb
     local apk serial
@@ -241,6 +252,7 @@ Usage: $0 <command>
   install-glass [apk]   Install the Glass app and open it
   install-phone [apk]   Install the phone companion and open it
   install-nav [apk]     Install GlassLink Navigation on Glass (turn-by-turn from Maps)
+  install-recipes [apk] Install Recipes on Glass (recipes and instructions from the phone)
   install-glass-system [apk]
                         Install the Glass app as a system app, so notifications
                         can go into Glass's own timeline (reboots Glass)
@@ -261,6 +273,7 @@ case "${1:-}" in
     install-glass) shift; cmd_install_glass "${1:-}" ;;
     install-phone) shift; cmd_install_phone "${1:-}" ;;
     install-nav) shift; cmd_install_nav "${1:-}" ;;
+    install-recipes) shift; cmd_install_recipes "${1:-}" ;;
     install-glass-system) shift; cmd_install_glass_system "${1:-}" ;;
     uninstall-glass-system) cmd_uninstall_glass_system ;;
     start) cmd_start ;;

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Lets the app use its own phrases: "ok glass, next step" and the "show recipe" trigger. -->
+    <uses-permission android:name="com.google.android.glass.permission.DEVELOPMENT" />
+
+    <application
+        android:allowBackup="false"
+        android:icon="@drawable/ic_recipe"
+        android:label="@string/app_name">
+
+        <uses-library
+            android:name="com.google.android.glass"
+            android:required="true" />
+
+        <activity
+            android:name=".RecipeActivity"
+            android:exported="true"
+            android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="com.google.android.glass.action.VOICE_TRIGGER" />
+            </intent-filter>
+            <meta-data
+                android:name="com.google.android.glass.VoiceTrigger"
+                android:resource="@xml/voice_trigger" />
+        </activity>
+
+        <!-- Woken by the GlassLink hub when the phone sends a recipe. -->
+        <receiver
+            android:name=".RecipeReceiver"
+            android:exported="true"
+            android:permission="dev.glassrevival.permission.HUB">
+            <intent-filter>
+                <action android:name="dev.glassrevival.hub.action.MESSAGE" />
+            </intent-filter>
+            <meta-data
+                android:name="dev.glassrevival.hub.CHANNELS"
+                android:value="dev.glassrevival.recipes" />
+        </receiver>
+    </application>
+</manifest>

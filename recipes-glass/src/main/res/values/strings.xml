@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Recipes</string>
+    <string name="voice_trigger">show recipe</string>
+    <!-- "ok glass, …" inside the app -->
+    <string name="cmd_next">next step</string>
+    <string name="cmd_previous">previous step</string>
+    <string name="cmd_ingredients">show ingredients</string>
+    <string name="cmd_read">read aloud</string>
+    <string name="cmd_timer">start a timer</string>
+    <string name="cmd_stop_timer">stop the timer</string>
+    <string name="cmd_close">close recipe</string>
+    <string name="no_recipe">No recipe yet</string>
+    <string name="no_recipe_hint">On your phone, share a recipe page or some text and choose Send to Glass.</string>
+</resources>

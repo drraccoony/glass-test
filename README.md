@@ -11,6 +11,7 @@ your Android phone's notifications onto the display.
 | `protocol/` | Both | Shared message format, with unit tests |
 | `hub-api/` | Both | Library that lets other apps share the link (see [Add-on apps](#add-on-apps)) |
 | `nav-glass/` | Glass | GlassLink Navigation: turn-by-turn from Google Maps on the phone |
+| `recipes-glass/` | Glass | Recipes: step through recipes and instructions shared from the phone |
 | `scripts/glasslink.sh` | Your Linux PC | adb setup, USB access, install, logs |
 
 ## Features
@@ -128,6 +129,24 @@ Then start navigation in Google Maps on the phone as usual. The companion reads 
 navigation notification and sends each step to Glass. It needs notification access, which
 GlassLink already has.
 
+## Recipes (optional)
+
+Share a recipe page (from Chrome or any app) or some text on the phone and choose
+**Send to Glass**. Recipe sites are read from the recipe data they embed (schema.org),
+so you get the title, photo, ingredients and steps without the clutter. With plain text,
+each line becomes a step.
+
+On Glass you get a title card, ingredient cards and one card per step. The screen stays
+on. Swipe, or say **"ok glass"** and then **next step**, **previous step**, **show
+ingredients**, **read aloud**, or **start a timer** when a step mentions a time. The
+timer rings even if you leave the app. **"ok glass, show recipe"** reopens the last one
+where you left off.
+
+```bash
+./scripts/glasslink.sh install-recipes
+```
+
+## Using it on Glass
 
 | Gesture | Action |
 | --- | --- |

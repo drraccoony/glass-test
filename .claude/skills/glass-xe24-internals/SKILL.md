@@ -234,6 +234,37 @@ RemoteViews-safe widgets. The usual pattern, which `nav-glass` uses: tapping the
 translucent activity that calls `openOptionsMenu()` in `onAttachedToWindow()` and finishes in
 `onOptionsMenuClosed()`.
 
+## In-app voice commands and head gestures (GDK, XE24)
+
+- **Enabling the voice menu:** `getWindow().requestFeature(WindowUtils.FEATURE_VOICE_COMMANDS)`
+  (the value is 11). Build the menu in `onCreatePanelMenu(11, menu)`; the item titles are the
+  phrases to say.
+- **Custom phrases:** these need `com.google.android.glass.permission.DEVELOPMENT`. Without it,
+  only `ContextualMenus.Command` phrases work. Several suit recipes: SHOW_INGREDIENTS,
+  SHOW_INSTRUCTIONS, START_A_TIMER, READ_ALOUD, GO_BACK and GO_FORWARD.
+- **Don't refresh the voice menu.** Calling `invalidatePanelMenu(11)`, or returning true from
+  `onPreparePanel` for feature 11, makes XE24 open the command list and listen without "ok glass".
+  Accidental speech then fires commands.
+  - Build the voice menu once, keep it fixed, and ignore commands that don't apply.
+  - Only the tap menu (`FEATURE_OPTIONS_PANEL`) should be dynamic.
+  - The log shows "Open top-level voice menu" for the normal "ok glass" prompt too, so a
+    screenshot is the way to tell the two apart.
+- **Head gestures:** `com.google.android.glass.head.HeadGestureManager.from(ctx).register(HeadGesture.X, listener)`,
+  where X is one of ACCEL_TAP, GLOBAL_LOOK_UP, NUDGE or RELATIVE_LOOK_UP.
+- **Card layouts in `CardBuilder`:** ALERT, AUTHOR, CAPTION, COLUMNS, COLUMNS_FIXED, EMBED_BEHIND,
+  EMBED_INSIDE, MENU, TEXT, TEXT_FIXED and TITLE (TITLE takes a background image via `addImage`).
+- **Fonts:** the KitKat Roboto font has no emoji or ⏱ glyph; use words instead.
+- **Footnotes and the voice prompt:** with the voice menu enabled, the "ok glass" prompt sits in
+  the middle of the bottom edge. Keep footnotes (bottom left) and timestamps (bottom right)
+  short, or they run under it.
+- **TITLE layout** fits about 22 characters on one line. For longer titles over an image, use
+  CAPTION, which wraps.
+- **TEXT layout** shrinks text to fit, but cuts it off with "…" at about 6 lines of 35
+  characters (~170–200 characters). Split longer text across cards.
+- **`CardScrollView.setSelection`** is ignored before the view has laid out its cards, for
+  example in `onCreate`, or `onNewIntent` right after a data change. Call it again in
+  `scroller.post(…)`.
+
 ## Other built-in components worth knowing
 
 - **`com.google.glass.sync`:** TimelineProvider, StylesheetProvider (CSS for Mirror HTML cards),
