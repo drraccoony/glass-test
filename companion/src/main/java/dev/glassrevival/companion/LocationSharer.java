@@ -49,11 +49,6 @@ final class LocationSharer implements LinkManager.GlassHook {
         });
     }
 
-    @Override
-    public void onGlassRequest(String type) {
-        // Glass doesn't ask; fixes are pushed while linked.
-    }
-
     /** Call after the setting or the location permission changes. */
     void settingsChanged() {
         main.post(this::update);

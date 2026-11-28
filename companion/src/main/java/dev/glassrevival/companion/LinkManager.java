@@ -58,12 +58,9 @@ final class LinkManager {
         String onGlassReply(String key, String text);
     }
 
-    /** Data sources (weather, METARs, ...), told when Glass connects or asks for an update. */
+    /** Data sources and settings, told when Glass connects. */
     interface GlassHook {
         void onGlassConnected();
-
-        /** @param type the request message type, e.g. {@link Protocol#WEATHER_REQUEST} */
-        void onGlassRequest(String type);
     }
 
     private final CopyOnWriteArrayList<GlassHook> hooks = new CopyOnWriteArrayList<>();
@@ -351,8 +348,6 @@ final class LinkManager {
             } catch (JSONException ignored) {
                 // cannot happen
             }
-        } else if (Protocol.WEATHER_REQUEST.equals(type)) {
-            for (GlassHook h : hooks) h.onGlassRequest(type);
         } else if (Protocol.STATUS.equals(type)) {
             glassBattery = msg.optInt(Protocol.F_BATTERY, glassBattery);
             glassCharging = msg.optBoolean(Protocol.F_CHARGING, glassCharging);

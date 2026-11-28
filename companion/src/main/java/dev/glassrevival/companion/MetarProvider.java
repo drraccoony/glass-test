@@ -66,11 +66,6 @@ final class MetarProvider implements LinkManager.GlassHook {
         });
     }
 
-    @Override
-    public void onGlassRequest(String type) {
-        // Requests come on the channel instead.
-    }
-
     /** A frame from the Airports app on Glass. */
     void onGlassMessage(JSONObject msg) {
         String type = msg.optString(Protocol.F_TYPE);

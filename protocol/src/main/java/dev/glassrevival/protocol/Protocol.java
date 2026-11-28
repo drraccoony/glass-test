@@ -50,9 +50,6 @@ package dev.glassrevival.protocol;
  * glass -> phone   dismiss {key}                     user dismissed it on Glass
  * glass -> phone   reply   {key, text}               user replied on Glass
  * phone -> glass   reply_result {key, ok, error?}
- * phone -> glass   weather {place, temp, feels, desc, sky, day, high, low, rain, wind,
- *                            unit, windUnit, updated, hours: [{label, temp, sky}]}
- * glass -> phone   weather_request                   user asked for fresh weather
  * glass -> phone   status  {battery, charging}
  * either           ping / pong
  *
@@ -95,7 +92,6 @@ public final class Protocol {
     public static final String PONG = "pong";
     public static final String REPLY = "reply";
     public static final String REPLY_RESULT = "reply_result";
-    public static final String WEATHER = "weather";
     public static final String CLOCK = "clock";
     public static final String LOCATION = "location";
     public static final String SETTINGS = "settings";
@@ -111,7 +107,6 @@ public final class Protocol {
     public static final String MEDIA_DELETE = "media_delete";
     public static final String MEDIA_DELETED = "media_deleted";
     public static final String MEDIA_PREFIX = "media_";
-    public static final String WEATHER_REQUEST = "weather_request";
     public static final String CAST_START = "cast_start";
     public static final String CAST_FRAME = "cast_frame";
     public static final String CAST_URL = "cast_url";
@@ -156,7 +151,8 @@ public final class Protocol {
     public static final String F_CAN_REPLY = "canReply";
     /** Suggested replies, as a JSON array of strings. */
     public static final String F_CHOICES = "choices";
-    // Weather fields. "sky" is one of the SKY_* values below.
+    // Fields of the Weather add-on's forecast (hub channel dev.glassrevival.weather), shared
+    // by the phone and the Glass app. "sky" is one of the SKY_* values below.
     public static final String F_PLACE = "place";
     public static final String F_TEMP = "temp";
     public static final String F_FEELS = "feels";

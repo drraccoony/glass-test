@@ -149,11 +149,6 @@ final class NavProvider implements LinkManager.GlassHook {
         if (step != null) sendStep();
     }
 
-    @Override
-    public void onGlassRequest(String type) {
-        // Requests come on the channel instead.
-    }
-
     // ---- Helpers --------------------------------------------------------------------------
 
     private void sendStep() {

@@ -60,7 +60,6 @@ final class NotificationStore {
     private final List<Note> notes = new ArrayList<>(); // newest first, main thread only
     private LinkState linkState = LinkState.WAITING;
     private String peerName;
-    private Weather weather;
 
     private NotificationStore() {}
 
@@ -111,18 +110,6 @@ final class NotificationStore {
         main.post(() -> {
             for (Listener l : listeners) l.onReplyResult(key, ok, error);
         });
-    }
-
-    void setWeather(final Weather w) {
-        main.post(() -> {
-            weather = w;
-            fire();
-        });
-    }
-
-    /** Main thread only. */
-    Weather weather() {
-        return weather;
     }
 
     /** Main thread only. */

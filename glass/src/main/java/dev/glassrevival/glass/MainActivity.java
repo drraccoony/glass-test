@@ -55,7 +55,6 @@ public class MainActivity extends Activity implements NotificationStore.Listener
     /** One card in the scroller. Equal cards keep their place when the list changes. */
     private static final class Card {
         static final int STATUS = 0;
-        static final int WEATHER = 1;
         static final int NOTE = 2;
 
         final int kind;
@@ -93,12 +92,9 @@ public class MainActivity extends Activity implements NotificationStore.Listener
     private final CardsAdapter adapter = new CardsAdapter();
     private List<Card> cards = new ArrayList<>();
     private List<NotificationStore.Note> notes = Collections.emptyList();
-    private Weather weather;
 
     private String pendingAlertKey;
     private boolean alertMode;
-    private boolean pendingWeatherCard;
-    private boolean weatherRefreshing;
     /** The scroller ignores selections made before the activity is on screen. */
     private boolean resumed;
 
@@ -323,26 +319,6 @@ public class MainActivity extends Activity implements NotificationStore.Listener
                 statusCells[i] = v.findViewById(cellIds[i][0]);
                 statusLabels[i] = (TextView) v.findViewById(cellIds[i][1]);
                 statusValues[i] = (TextView) v.findViewById(cellIds[i][2]);
-            }
-            weatherDetails = v.findViewById(R.id.weather_details);
-            weatherIcon = (ImageView) v.findViewById(R.id.weather_icon);
-            weatherTemp = (TextView) v.findViewById(R.id.weather_temp);
-            weatherDesc = (TextView) v.findViewById(R.id.weather_desc);
-            feels = (TextView) v.findViewById(R.id.stat_feels);
-            high = (TextView) v.findViewById(R.id.stat_high);
-            low = (TextView) v.findViewById(R.id.stat_low);
-            rain = (TextView) v.findViewById(R.id.stat_rain);
-            wind = (TextView) v.findViewById(R.id.stat_wind);
-            int[][] ids = {
-                {R.id.hour_0, R.id.hour_0_label, R.id.hour_0_icon, R.id.hour_0_temp},
-                {R.id.hour_1, R.id.hour_1_label, R.id.hour_1_icon, R.id.hour_1_temp},
-                {R.id.hour_2, R.id.hour_2_label, R.id.hour_2_icon, R.id.hour_2_temp},
-            };
-            for (int i = 0; i < 3; i++) {
-                hours[i] = v.findViewById(ids[i][0]);
-                hourLabels[i] = (TextView) v.findViewById(ids[i][1]);
-                hourIcons[i] = (ImageView) v.findViewById(ids[i][2]);
-                hourTemps[i] = (TextView) v.findViewById(ids[i][3]);
             }
         }
     }

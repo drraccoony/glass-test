@@ -90,20 +90,9 @@ public class LinkService extends Service {
         }
     }
 
-    /** Asks the phone for fresh weather. */
-    static boolean requestWeather() {
-        LinkService svc = instance;
-        if (svc == null) return false;
-        try {
-            return svc.sendToPeer(new JSONObject().put(Protocol.F_TYPE, Protocol.WEATHER_REQUEST));
-        } catch (JSONException e) {
-            return false;
-        }
-    }
-
-    private static final String WEATHER_PREF = "last_weather";
-    /** METARs moved to the Airports app; drop what older versions saved. */
+    /** METARs and weather moved to their own apps; drop what older versions saved. */
     private static final String OLD_METAR_PREF = "last_metar";
+    private static final String OLD_WEATHER_PREF = "last_weather";
     static final String PREF_WAKE = "alert_wake";
     static final String PREF_SOUND = "alert_sound";
     static final String PREF_ALERT_SECONDS = "alert_seconds";
@@ -154,11 +143,7 @@ public class LinkService extends Service {
         packages.addAction(Intent.ACTION_PACKAGE_REPLACED);
         packages.addDataScheme("package");
         registerReceiver(packageReceiver, packages);
-        // Show the last forecast right away, even before the phone reconnects.
-        Weather saved = Weather.parse(getSharedPreferences("glasslink", MODE_PRIVATE)
-                .getString(WEATHER_PREF, null));
-        if (saved != null) store.setWeather(saved);
-        getSharedPreferences("glasslink", MODE_PRIVATE).edit().remove(OLD_METAR_PREF).apply();
+        getSharedPreferences("glasslink", MODE_PRIVATE).edit().remove(OLD_METAR_PREF).remove(OLD_WEATHER_PREF).apply();
         MediaLibrary library = new MediaLibrary(getContentResolver());
         mediaServer = new MediaServer(this, library);
         media = new MediaHandler(library, mediaServer);
@@ -473,14 +458,6 @@ public class LinkService extends Service {
                 phoneLocation.update(msg);
             } else if (Protocol.CLOCK.equals(type)) {
                 applyTimeZone(msg.optString(Protocol.F_TIMEZONE, ""));
-            } else if (Protocol.WEATHER.equals(type)) {
-                String json = msg.toString();
-                Weather w = Weather.parse(json);
-                if (w != null) {
-                    store.setWeather(w);
-                    getSharedPreferences("glasslink", MODE_PRIVATE).edit()
-                            .putString(WEATHER_PREF, json).apply();
-                }
             } else if (Protocol.REPLY_RESULT.equals(type)) {
                 store.replyResult(msg.getString(Protocol.F_KEY), msg.optBoolean(Protocol.F_OK, false),
                         msg.optString(Protocol.F_ERROR, ""));

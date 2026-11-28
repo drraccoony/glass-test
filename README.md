@@ -13,6 +13,7 @@ your Android phone's notifications onto the display.
 | `nav-glass/` | Glass | GlassLink Navigation: turn-by-turn from Google Maps on the phone |
 | `recipes-glass/` | Glass | Recipes: step through recipes and instructions shared from the phone |
 | `airports-glass/` | Glass | Airports: the latest METAR for each of your airports |
+| `weather-glass/` | Glass | Weather: the forecast for where you are |
 | `scripts/glasslink.sh` | Your Linux PC | adb setup, USB access, install, logs |
 
 ## Features
@@ -117,18 +118,32 @@ alerts while it's being worn. Otherwise the card is added quietly.
 
 ## Add-on apps on Glass (optional)
 
-Navigation, Recipes and Airports are separate Glass apps. They come bundled with the
+Weather, Airports, Navigation and Recipes are separate Glass apps. They come bundled with the
 phone app: open its **Apps** tab, tap one, and choose **Install**, **Update** or **Remove**.
 The tab shows what's on Glass and offers an update when the bundled build differs.
 
 Installing from the phone needs GlassLink's system install on Glass (see
 [Glass timeline](#glass-timeline-optional)). If you did that before the Apps tab existed,
 run `./scripts/glasslink.sh install-glass-system` once more so GlassLink gets permission to
-install apps. Without the system install, use the `install-nav`, `install-recipes` and
-`install-airports` commands below; the Apps tab still shows what's installed.
+install apps. Without the system install, use the `install-weather`, `install-airports`,
+`install-nav` and `install-recipes` commands below; the Apps tab still shows what's installed.
 
-The phone only sends data an add-on can use: no METAR downloads without Airports, no
-navigation steps without Navigation, and **Send to Glass** says so when Recipes is missing.
+The phone only sends data an add-on can use: no forecasts without Weather, no METAR
+downloads without Airports, no navigation steps without Navigation, and **Send to Glass**
+says so when Recipes is missing.
+
+## Weather (optional)
+
+**Weather** shows the current conditions, today's high and low, rain chance, wind and the
+next few hours. Say **"ok glass, show me the weather"** (one of Glass's built-in commands,
+so it works offline). Tap the card to fetch a new forecast.
+
+The forecast comes from open-meteo.com for your phone's location, rounded to about 1 km,
+or for a place you pick. Set that, and Fahrenheit, under **Weather** in the phone's **Apps** tab.
+
+```bash
+./scripts/glasslink.sh install-weather
+```
 
 ## Navigation (optional)
 

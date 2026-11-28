@@ -13,6 +13,9 @@ android {
         minSdk 19
         //noinspection ExpiredTargetSdkVersion
         targetSdk 19
+        // Glass's screen is hdpi. Android 4.4 can't draw vector drawables, so the build turns
+        // them into PNGs: only for hdpi, which keeps the APK small enough to send over Bluetooth.
+        vectorDrawables.generatedDensities = ['hdpi']
         versionCode 1
         versionName '0.1.0'
     }
@@ -33,6 +36,13 @@ android {
             signingConfig signingConfigs.dev
             minifyEnabled false
         }
+    }
+
+    // Leave out the encrypted dependency list AGP adds for Google Play. It made a 100 KB app
+    // about 270 KB, and add-ons cross Bluetooth to Glass at about 5 KB/s.
+    dependenciesInfo {
+        includeInApk false
+        includeInBundle false
     }
 
     compileOptions {

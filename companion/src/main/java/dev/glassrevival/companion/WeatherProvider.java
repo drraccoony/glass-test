@@ -33,10 +33,21 @@ import org.json.JSONObject;
 
 /**
  * Fetches the forecast from Open-Meteo (free, no API key) for the phone's location or a
- * place the user picked, and sends it to Glass. Coordinates are rounded to two decimal
- * places (about 1 km) before they leave the phone.
+ * place the user picked, and sends it on the hub channel {@link #CHANNEL} to the Weather
+ * app on Glass. Coordinates are rounded to two decimal places (about 1 km) before they
+ * leave the phone.
+ *
+ * <pre>
+ * phone -> glass  weather  {place, temp, feels, desc, sky, day, high, low, rain, wind, unit,
+ *                           windUnit, updated, hours: [{label, temp, sky, day}]}
+ * glass -> phone  sync     {}    send what you have, and fetch if it's old
+ * glass -> phone  refresh  {}    fetch now
+ * </pre>
  */
 final class WeatherProvider implements LinkManager.GlassHook {
+
+    static final String CHANNEL = "dev.glassrevival.weather";
+    private static final String TYPE = "weather";
 
     private static final String TAG = "GlassLink";
     private static final long STALE_MS = 30 * 60 * 1000L;
@@ -67,10 +78,39 @@ final class WeatherProvider implements LinkManager.GlassHook {
         });
     }
 
-    @Override
-    public void onGlassRequest(String type) {
-        if (!Protocol.WEATHER_REQUEST.equals(type)) return;
-        exec.execute(() -> refresh(true));
+    /** A frame from the Weather app on Glass. */
+    void onGlassMessage(JSONObject msg) {
+        String type = msg.optString(Protocol.F_TYPE);
+        if ("sync".equals(type)) {
+            exec.execute(() -> {
+                sendCached();
+                refresh(false);
+            });
+        } else if ("refresh".equals(type)) {
+            exec.execute(() -> refresh(true));
+        }
+    }
+
+    /** The Weather app was just installed on Glass. */
+    void glassAppInstalled() {
+        exec.execute(() -> {
+            sendCached();
+            refresh(false);
+        });
+    }
+
+    /** False when Glass reported it has no Weather app: then nothing is fetched or sent. */
+    private boolean glassHasApp() {
+        return CompanionApp.addOns(context).isInstalled(AddOnManager.WEATHER);
+    }
+
+    private void send(JSONObject msg) {
+        try {
+            msg.put(Protocol.F_CHANNEL, CHANNEL);
+        } catch (JSONException ignored) {
+            // cannot happen
+        }
+        link.send(msg);
     }
 
     /** Settings changed (units, place): fetch again now. */
@@ -93,18 +133,18 @@ final class WeatherProvider implements LinkManager.GlassHook {
     // ---- Refresh --------------------------------------------------------------------------
 
     private void sendCached() {
-        if (!prefs.weatherEnabled()) return;
+        if (!prefs.weatherEnabled() || !glassHasApp()) return;
         String json = prefs.weatherJson();
         if (json == null) return;
         try {
-            link.send(new JSONObject(json));
+            send(new JSONObject(json));
         } catch (JSONException ignored) {
             // corrupt cache; the next fetch replaces it
         }
     }
 
     private void refresh(boolean force) {
-        if (!prefs.weatherEnabled() || !link.isConnected()) return;
+        if (!prefs.weatherEnabled() || !link.isConnected() || !glassHasApp()) return;
         long age = System.currentTimeMillis() - prefs.weatherFetchedAt();
         if (!force && age < STALE_MS) return;
         if (force && age < MIN_FETCH_GAP_MS) {
@@ -131,7 +171,7 @@ final class WeatherProvider implements LinkManager.GlassHook {
             prefs.setWeather(msg.toString(), System.currentTimeMillis());
             prefs.setWeatherStatus("Updated " + DateFormat.getTimeFormat(context)
                     .format(Calendar.getInstance().getTime()) + (place.isEmpty() ? "" : ", " + place));
-            link.send(msg);
+            send(msg);
         } catch (IOException | JSONException e) {
             Log.w(TAG, "Weather fetch failed", e);
             prefs.setWeatherStatus("Couldn't reach the weather service");
@@ -156,7 +196,7 @@ final class WeatherProvider implements LinkManager.GlassHook {
         int code = current.getInt("weather_code");
 
         JSONObject msg = new JSONObject();
-        msg.put(Protocol.F_TYPE, Protocol.WEATHER);
+        msg.put(Protocol.F_TYPE, TYPE);
         msg.put(Protocol.F_PLACE, place);
         msg.put(Protocol.F_TEMP, (int) Math.round(current.getDouble("temperature_2m")));
         msg.put(Protocol.F_FEELS, (int) Math.round(current.getDouble("apparent_temperature")));

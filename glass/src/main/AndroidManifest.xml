@@ -76,20 +76,6 @@
                 android:resource="@xml/voice_trigger" />
         </activity>
 
-        <!-- Second voice command that opens straight to the weather card. -->
-        <activity-alias
-            android:name=".WeatherAlias"
-            android:exported="true"
-            android:label="@string/weather"
-            android:targetActivity=".MainActivity">
-            <intent-filter>
-                <action android:name="com.google.android.glass.action.VOICE_TRIGGER" />
-            </intent-filter>
-            <meta-data
-                android:name="com.google.android.glass.VoiceTrigger"
-                android:resource="@xml/voice_trigger_weather" />
-        </activity-alias>
-
         <!--
         Also the hub that add-on Glass apps bind to (see hub-api). Only apps signed with
         the GlassLink key hold the permission.

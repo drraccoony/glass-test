@@ -52,12 +52,12 @@ public class MainActivity extends Activity implements LinkManager.Listener {
     private Button glassEditButton;
     private boolean glassEditing;
 
-    private static final String[] TAB_TITLES = {"Glass", "Notifications", "Photos", "Weather", "Apps"};
+    private static final String[] TAB_TITLES = {"Glass", "Notifications", "Photos", "Apps"};
     private static final int TAB_PHOTOS = 2;
-    private final View[] pages = new View[5];
-    private final View[] tabs = new View[5];
-    private final android.widget.ImageView[] tabIcons = new android.widget.ImageView[5];
-    private final TextView[] tabLabels = new TextView[5];
+    private final View[] pages = new View[TAB_TITLES.length];
+    private final View[] tabs = new View[TAB_TITLES.length];
+    private final android.widget.ImageView[] tabIcons = new android.widget.ImageView[TAB_TITLES.length];
+    private final TextView[] tabLabels = new TextView[TAB_TITLES.length];
     private TextView pageTitle;
     private View headerDot;
     private TextView headerState;
@@ -543,16 +543,14 @@ public class MainActivity extends Activity implements LinkManager.Listener {
         pageTitle = findViewById(R.id.page_title);
         headerDot = findViewById(R.id.header_dot);
         headerState = findViewById(R.id.header_state);
-        int[] pageIds = {R.id.page_glass, R.id.page_notifications, R.id.page_photos, R.id.page_weather,
-            R.id.page_apps};
+        int[] pageIds = {R.id.page_glass, R.id.page_notifications, R.id.page_photos, R.id.page_apps};
         int[][] tabIds = {
             {R.id.tab_glass, R.id.tab_glass_icon, R.id.tab_glass_label},
             {R.id.tab_notifications, R.id.tab_notifications_icon, R.id.tab_notifications_label},
             {R.id.tab_photos, R.id.tab_photos_icon, R.id.tab_photos_label},
-            {R.id.tab_weather, R.id.tab_weather_icon, R.id.tab_weather_label},
             {R.id.tab_apps, R.id.tab_apps_icon, R.id.tab_apps_label},
         };
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < TAB_TITLES.length; i++) {
             final int index = i;
             pages[i] = findViewById(pageIds[i]);
             tabs[i] = findViewById(tabIds[i][0]);
@@ -568,8 +566,8 @@ public class MainActivity extends Activity implements LinkManager.Listener {
     }
 
     private void selectTab(int index) {
-        currentTab = Math.max(0, Math.min(4, index));
-        for (int i = 0; i < 5; i++) {
+        currentTab = Math.max(0, Math.min(TAB_TITLES.length - 1, index));
+        for (int i = 0; i < TAB_TITLES.length; i++) {
             boolean on = i == currentTab;
             pages[i].setVisibility(on ? View.VISIBLE : View.GONE);
             int color = getColor(on ? R.color.accent : R.color.muted_text);

@@ -47,6 +47,10 @@ final class AddOnManager implements LinkManager.MessageSink {
         }
     }
 
+    static final AddOn WEATHER = new AddOn("dev.glassrevival.weather", "Weather",
+            "The forecast for where you are, or a place you pick: now, today's high and low,"
+                    + " rain, wind and the next few hours. Say \"ok glass, show me the weather\".",
+            "install-weather");
     static final AddOn AIRPORTS = new AddOn("dev.glassrevival.airports", "Airports",
             "METARs for your airports, with decoded conditions, density altitude, runway winds and"
                     + " alerts when conditions change. Say \"ok glass, show airports\".",
@@ -59,7 +63,7 @@ final class AddOnManager implements LinkManager.MessageSink {
             "Step through a recipe hands-free. Share a recipe page or text on the phone and choose"
                     + " Send to Glass.",
             "install-recipes");
-    static final List<AddOn> ALL = Collections.unmodifiableList(Arrays.asList(AIRPORTS, NAV, RECIPES));
+    static final List<AddOn> ALL = Collections.unmodifiableList(Arrays.asList(WEATHER, AIRPORTS, NAV, RECIPES));
 
     enum Status { UNKNOWN, NOT_INSTALLED, INSTALLED, UPDATE }
 
@@ -75,7 +79,7 @@ final class AddOnManager implements LinkManager.MessageSink {
 
     private static final String TAG = "GlassLink";
     private static final String PREF = "addons_reported";
-    private static final long TIMEOUT_MS = 90 * 1000L;
+    private static final long TIMEOUT_MS = 3 * 60 * 1000L; // an APK crosses Bluetooth at about 5 KB/s
 
     private final Context context;
     private final LinkManager link;

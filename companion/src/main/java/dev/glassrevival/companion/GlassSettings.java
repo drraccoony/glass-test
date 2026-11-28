@@ -20,11 +20,6 @@ final class GlassSettings implements LinkManager.GlassHook {
         push();
     }
 
-    @Override
-    public void onGlassRequest(String type) {
-        // Glass never asks; settings are pushed on connect and on change.
-    }
-
     void push() {
         try {
             link.send(new JSONObject()

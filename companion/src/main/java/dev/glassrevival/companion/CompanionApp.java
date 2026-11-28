@@ -55,14 +55,17 @@ public class CompanionApp extends Application {
                 nav.onGlassMessage(msg);
             } else if (MetarProvider.CHANNEL.equals(channel)) {
                 metar.onGlassMessage(msg);
+            } else if (WeatherProvider.CHANNEL.equals(channel)) {
+                weather.onGlassMessage(msg);
             } else {
                 hub.deliver(msg);
             }
         });
         link.addListener(() -> hub.setConnected(link.isConnected()));
-        // A freshly installed Airports app gets the latest METARs right away.
+        // A freshly installed Airports or Weather app gets its data right away.
         addOns.addInstallListener(pkg -> {
             if (AddOnManager.AIRPORTS.pkg.equals(pkg)) metar.glassAppInstalled();
+            if (AddOnManager.WEATHER.pkg.equals(pkg)) weather.glassAppInstalled();
         });
     }
 

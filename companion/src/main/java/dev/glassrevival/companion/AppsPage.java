@@ -14,7 +14,7 @@ import java.util.List;
 
 /**
  * The Apps tab: one card per Glass add-on. Tap a card for what it does, Install / Update /
- * Remove, and its settings (Airports has some). Installing needs GlassLink's system install
+ * Remove, and its settings (Weather and Airports have some). Installing needs GlassLink's system install
  * on Glass; without it, each card shows the glasslink.sh command instead.
  */
 final class AppsPage implements AddOnManager.Listener {
@@ -52,7 +52,6 @@ final class AppsPage implements AddOnManager.Listener {
         ui = activity.getPreferences(Activity.MODE_PRIVATE);
         note = activity.findViewById(R.id.apps_note);
         LinearLayout list = activity.findViewById(R.id.apps_list);
-        View airportsSettings = activity.findViewById(R.id.airports_settings);
         LayoutInflater inflater = LayoutInflater.from(activity);
         for (AddOnManager.AddOn a : AddOnManager.ALL) {
             View root = inflater.inflate(R.layout.addon_card, list, false);
@@ -61,9 +60,12 @@ final class AppsPage implements AddOnManager.Listener {
             cards.add(c);
             ((TextView) root.findViewById(R.id.addon_name)).setText(a.name);
             ((TextView) root.findViewById(R.id.addon_summary)).setText(a.summary);
-            if (a == AddOnManager.AIRPORTS) {
-                ((ViewGroup) airportsSettings.getParent()).removeView(airportsSettings);
-                ((ViewGroup) c.settings).addView(airportsSettings);
+            int settingsId = a == AddOnManager.AIRPORTS ? R.id.airports_settings
+                    : a == AddOnManager.WEATHER ? R.id.weather_settings : 0;
+            if (settingsId != 0) {
+                View settings = activity.findViewById(settingsId);
+                ((ViewGroup) settings.getParent()).removeView(settings);
+                ((ViewGroup) c.settings).addView(settings);
             }
             root.findViewById(R.id.addon_header).setOnClickListener(v -> {
                 ui.edit().putBoolean(openKey(a), !isOpen(a)).apply();
@@ -94,7 +96,7 @@ final class AppsPage implements AddOnManager.Listener {
     }
 
     void refresh() {
-        AddOnManager.Status any = addOns.status(AddOnManager.AIRPORTS);
+        AddOnManager.Status any = addOns.status(AddOnManager.WEATHER);
         if (any == AddOnManager.Status.UNKNOWN) {
             note.setText("Connect Glass to see which of these apps it has.");
         } else if (!addOns.canInstall()) {
@@ -153,7 +155,7 @@ final class AppsPage implements AddOnManager.Listener {
     }
 
     private boolean isOpen(AddOnManager.AddOn a) {
-        return ui.getBoolean(openKey(a), a == AddOnManager.AIRPORTS);
+        return ui.getBoolean(openKey(a), false);
     }
 
     private static String openKey(AddOnManager.AddOn a) {
